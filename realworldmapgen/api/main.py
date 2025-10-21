@@ -128,22 +128,30 @@ async def generate_map(
     # Start generation and get task_id
     task_id = str(uuid.uuid4())
     
-    async def run_generation():
-        try:
-            await generator.generate_map(request, task_id)
-        except Exception as e:
-            logger.error(f"Background generation failed: {e}")
-    
-    background_tasks.add_task(run_generation)
-    
-    # Return initial status with actual task_id
-    return GenerationStatus(
+    # Register task immediately so it's available for status checks
+    initial_status = GenerationStatus(
         task_id=task_id,
         status="pending",
         progress=0.0,
         current_step="Queued for processing",
         message=f"Map generation for '{request.name}' has been queued"
     )
+    generator.active_tasks[task_id] = initial_status
+    
+    async def run_generation():
+        try:
+            await generator.generate_map(request, task_id)
+        except Exception as e:
+            logger.error(f"Background generation failed: {e}")
+            # Update task status on error
+            if task_id in generator.active_tasks:
+                generator.active_tasks[task_id].status = "failed"
+                generator.active_tasks[task_id].error = str(e)
+    
+    background_tasks.add_task(run_generation)
+    
+    # Return initial status
+    return initial_status
 
 
 @app.get("/api/status/{task_id}", response_model=GenerationStatus)
