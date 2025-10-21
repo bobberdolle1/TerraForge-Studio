@@ -119,17 +119,17 @@ async function checkHealth() {
         const data = await response.json();
 
         document.getElementById('healthStatus').textContent = 
-            data.status === 'healthy' ? '✓ Online' : '✗ Offline';
+            data.status === 'healthy' ? ' Online' : ' Offline';
         document.getElementById('healthStatus').style.background = 
             data.status === 'healthy' ? '#28a745' : '#dc3545';
 
         document.getElementById('ollamaStatus').textContent = 
-            data.ollama.available ? '✓ Connected' : '✗ Not Available';
+            data.ollama.available ? ' Connected' : ' Not Available';
         document.getElementById('ollamaStatus').style.background = 
             data.ollama.available ? '#28a745' : '#ffc107';
     } catch (error) {
         console.error('Health check failed:', error);
-        document.getElementById('healthStatus').textContent = '✗ Error';
+        document.getElementById('healthStatus').textContent = ' Error';
         document.getElementById('healthStatus').style.background = '#dc3545';
     }
 }
@@ -152,6 +152,9 @@ async function generateMap() {
         alert('Map name can only contain letters, numbers, underscores, and hyphens');
         return;
     }
+
+    const resolution = parseInt(document.getElementById('resolution').value);
+    const exportEngine = document.getElementById('exportEngine').value;
 
     const request = {
         name: mapName,

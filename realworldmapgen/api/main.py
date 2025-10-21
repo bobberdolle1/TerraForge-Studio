@@ -336,6 +336,19 @@ async def batch_generate(requests: List[MapGenerationRequest]):
 async def test_generate():
     """Test endpoint with sample coordinates"""
     # Sample area: small section in San Francisco
+    class MapGenerationRequest(BaseModel):
+        """Request model for map generation"""
+        name: str
+        bbox: BoundingBox
+        resolution: int = 2048
+        export_engine: str = "beamng"  # beamng, unreal, unity, all
+        enable_ai_analysis: bool = True
+        enable_roads: bool = True
+        enable_traffic_lights: bool = True
+        enable_parking: bool = True
+        enable_buildings: bool = True
+        enable_vegetation: bool = True
+
     test_request = MapGenerationRequest(
         name="test_map",
         bbox=BoundingBox(
@@ -345,6 +358,7 @@ async def test_generate():
             west=-122.41
         ),
         resolution=1024,
+        export_engine="beamng",
         enable_ai_analysis=True,
         enable_roads=True,
         enable_traffic_lights=True,
