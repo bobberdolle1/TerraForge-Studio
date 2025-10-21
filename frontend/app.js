@@ -1,37 +1,54 @@
-// RealWorldMapGen-BNG Frontend Application
-
+// RealWorldMapGen-BNG Frontend with Advanced Map Controls
 const API_BASE_URL = 'http://localhost:8000';
 
 let map;
-let drawnItems;
 let selectedBounds = null;
+let drawnItems;
+let currentDrawTool = 'rectangle';
+let searchMarker = null;
 
 // Initialize map
 function initMap() {
-    map = L.map('map').setView([37.7749, -122.4194], 12); // San Francisco default
+    // Create map
+    map = L.map('map').setView([55.7558, 37.6173], 13);
 
-    // Add OpenStreetMap tiles
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // Add multiple base layers
+    const osmStandard = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors',
-        maxZoom: 18
-    }).addTo(map);
+        maxZoom: 19
+    });
 
-    // Initialize draw controls
+    const osmHOT = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors, Tiles style by Humanitarian OSM Team',
+        maxZoom: 19
+    });
+
+    const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri',
+        maxZoom: 19
+    });
+
+    // Add default layer
+    osmStandard.addTo(map);
+
+    // Layer control
+    const baseMaps = {
+        "🗺️ OpenStreetMap": osmStandard,
+        "🔥 Humanitarian": osmHOT,
+        "🛰️ Satellite": satellite
+    };
+
+    L.control.layers(baseMaps).addTo(map);
+
+    // Initialize drawing layer
     drawnItems = new L.FeatureGroup();
     map.addLayer(drawnItems);
 
+    // Drawing control
     const drawControl = new L.Control.Draw({
+        position: 'topleft',
         draw: {
-            rectangle: {
-                shapeOptions: {
-                    color: '#667eea',
-                    weight: 3,
-                    fillOpacity: 0.2
-                }
-            },
-            polygon: false,
             polyline: false,
-            circle: false,
             marker: false,
             circlemarker: false
         },
@@ -42,64 +59,193 @@ function initMap() {
     });
     map.addControl(drawControl);
 
-    // Handle rectangle drawn
-    map.on(L.Draw.Event.CREATED, function (event) {
-        const layer = event.layer;
+    // Map events
+    map.on(L.Draw.Event.CREATED, handleDrawCreated);
+    map.on(L.Draw.Event.EDITED, handleDrawEdited);
+    map.on(L.Draw.Event.DELETED, handleDrawDeleted);
+    map.on('mousemove', updateCoordinateDisplay);
+
+    // Initialize controls
+    setupMapControls();
+    setupSearch();
+}
+
+// Setup map control buttons
+function setupMapControls() {
+    // Rectangle tool
+    document.getElementById('rectangleTool').addEventListener('click', () => {
+        setActiveTool('rectangle');
+        new L.Draw.Rectangle(map, drawControl.options.draw.rectangle).enable();
+    });
+
+    // Polygon tool
+    document.getElementById('polygonTool').addEventListener('click', () => {
+        setActiveTool('polygon');
+        new L.Draw.Polygon(map, drawControl.options.draw.polygon).enable();
+    });
+
+    // Circle tool
+    document.getElementById('circleTool').addEventListener('click', () => {
+        setActiveTool('circle');
+        new L.Draw.Circle(map, drawControl.options.draw.circle).enable();
+    });
+
+    // Clear selection
+    document.getElementById('clearSelection').addEventListener('click', () => {
         drawnItems.clearLayers();
-        drawnItems.addLayer(layer);
-        
-        const bounds = layer.getBounds();
+        selectedBounds = null;
+        updateAreaInfo();
+    });
+
+    // Fit to bounds
+    document.getElementById('fitBounds').addEventListener('click', () => {
+        if (drawnItems.getLayers().length > 0) {
+            map.fitBounds(drawnItems.getBounds(), { padding: [50, 50] });
+        }
+    });
+}
+
+// Set active drawing tool
+function setActiveTool(tool) {
+    currentDrawTool = tool;
+    document.querySelectorAll('.map-tool-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.getElementById(tool + 'Tool').classList.add('active');
+}
+
+// Setup location search
+function setupSearch() {
+    const searchInput = document.getElementById('mapSearch');
+    let searchTimeout;
+
+    searchInput.addEventListener('input', (e) => {
+        clearTimeout(searchTimeout);
+        const query = e.target.value.trim();
+
+        if (query.length < 3) return;
+
+        searchTimeout = setTimeout(() => searchLocation(query), 500);
+    });
+
+    searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            searchLocation(e.target.value.trim());
+        }
+    });
+}
+
+// Search location using Nominatim
+async function searchLocation(query) {
+    if (!query) return;
+
+    try {
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`
+        );
+        const results = await response.json();
+
+        if (results.length > 0) {
+            const result = results[0];
+            const lat = parseFloat(result.lat);
+            const lon = parseFloat(result.lon);
+
+            // Remove previous search marker
+            if (searchMarker) {
+                map.removeLayer(searchMarker);
+            }
+
+            // Add new marker
+            searchMarker = L.marker([lat, lon], {
+                icon: L.divIcon({
+                    className: 'search-marker',
+                    html: '📍',
+                    iconSize: [30, 30]
+                })
+            }).addTo(map);
+
+            // Pan to location
+            map.setView([lat, lon], 14, { animate: true });
+
+            // Show popup
+            searchMarker.bindPopup(`<b>${result.display_name}</b>`).openPopup();
+        }
+    } catch (error) {
+        console.error('Search failed:', error);
+    }
+}
+
+// Update coordinate display
+function updateCoordinateDisplay(e) {
+    const lat = e.latlng.lat.toFixed(4);
+    const lon = e.latlng.lng.toFixed(4);
+    document.getElementById('coordDisplay').textContent = `Lat: ${lat}, Lon: ${lon}`;
+}
+
+// Handle draw created event
+function handleDrawCreated(e) {
+    const layer = e.layer;
+    
+    // Clear previous drawings
+    drawnItems.clearLayers();
+    drawnItems.addLayer(layer);
+
+    // Get bounds
+    updateBoundsFromLayer(layer);
+    updateAreaInfo();
+}
+
+// Handle draw edited event
+function handleDrawEdited(e) {
+    const layers = e.layers;
+    layers.eachLayer(layer => {
+        updateBoundsFromLayer(layer);
+        updateAreaInfo();
+    });
+}
+
+// Handle draw deleted event
+function handleDrawDeleted(e) {
+    selectedBounds = null;
+    updateAreaInfo();
+}
+
+// Update bounds from layer
+function updateBoundsFromLayer(layer) {
+    let bounds;
+
+    if (layer instanceof L.Rectangle || layer instanceof L.Polygon) {
+        bounds = layer.getBounds();
+    } else if (layer instanceof L.Circle) {
+        bounds = layer.getBounds();
+    }
+
+    if (bounds) {
         selectedBounds = {
             north: bounds.getNorth(),
             south: bounds.getSouth(),
             east: bounds.getEast(),
             west: bounds.getWest()
         };
-        
-        updateBboxInfo();
-        document.getElementById('generateBtn').disabled = false;
-    });
-
-    // Handle rectangle edited/deleted
-    map.on(L.Draw.Event.EDITED, function (event) {
-        const layers = event.layers;
-        layers.eachLayer(function (layer) {
-            const bounds = layer.getBounds();
-            selectedBounds = {
-                north: bounds.getNorth(),
-                south: bounds.getSouth(),
-                east: bounds.getEast(),
-                west: bounds.getWest()
-            };
-            updateBboxInfo();
-        });
-    });
-
-    map.on(L.Draw.Event.DELETED, function () {
-        selectedBounds = null;
-        updateBboxInfo();
-        document.getElementById('generateBtn').disabled = true;
-    });
+    }
 }
 
-// Update bounding box information display
-function updateBboxInfo() {
-    const bboxCoords = document.getElementById('bboxCoords');
-    const bboxArea = document.getElementById('bboxArea');
-
+// Update area info display
+function updateAreaInfo() {
+    const areaInfo = document.getElementById('areaInfo');
+    
     if (selectedBounds) {
-        bboxCoords.innerHTML = `
-            North: ${selectedBounds.north.toFixed(5)}<br>
-            South: ${selectedBounds.south.toFixed(5)}<br>
-            East: ${selectedBounds.east.toFixed(5)}<br>
-            West: ${selectedBounds.west.toFixed(5)}
-        `;
-
         const area = calculateAreaKm2(selectedBounds);
-        bboxArea.textContent = `Area: ${area.toFixed(2)} km²`;
+        
+        document.getElementById('areaCoords').textContent = 
+            `N: ${selectedBounds.north.toFixed(4)}, S: ${selectedBounds.south.toFixed(4)}, E: ${selectedBounds.east.toFixed(4)}, W: ${selectedBounds.west.toFixed(4)}`;
+        
+        document.getElementById('areaSize').textContent = 
+            `Area: ${area.toFixed(2)} km²`;
+        
+        areaInfo.style.display = 'block';
     } else {
-        bboxCoords.textContent = 'No area selected';
-        bboxArea.textContent = '';
+        areaInfo.style.display = 'none';
     }
 }
 
@@ -118,19 +264,28 @@ async function checkHealth() {
         const response = await fetch(`${API_BASE_URL}/api/health`);
         const data = await response.json();
 
-        document.getElementById('healthStatus').textContent = 
-            data.status === 'healthy' ? ' Online' : ' Offline';
-        document.getElementById('healthStatus').style.background = 
-            data.status === 'healthy' ? '#28a745' : '#dc3545';
+        const healthBadge = document.getElementById('healthStatus');
+        const ollamaBadge = document.getElementById('ollamaStatus');
 
-        document.getElementById('ollamaStatus').textContent = 
-            data.ollama.available ? ' Connected' : ' Not Available';
-        document.getElementById('ollamaStatus').style.background = 
-            data.ollama.available ? '#28a745' : '#ffc107';
+        if (data.status === 'healthy') {
+            healthBadge.textContent = '✅ System Online';
+            healthBadge.className = 'badge success';
+        } else {
+            healthBadge.textContent = '❌ System Offline';
+            healthBadge.className = 'badge danger';
+        }
+
+        if (data.ollama && data.ollama.available) {
+            ollamaBadge.textContent = '🤖 AI Connected';
+            ollamaBadge.className = 'badge success';
+        } else {
+            ollamaBadge.textContent = '⚠️ AI Unavailable';
+            ollamaBadge.className = 'badge warning';
+        }
     } catch (error) {
         console.error('Health check failed:', error);
-        document.getElementById('healthStatus').textContent = ' Error';
-        document.getElementById('healthStatus').style.background = '#dc3545';
+        document.getElementById('healthStatus').textContent = '❌ Connection Error';
+        document.getElementById('healthStatus').className = 'badge danger';
     }
 }
 
@@ -147,7 +302,7 @@ async function generateMap() {
         return;
     }
 
-    // Validate map name (alphanumeric, underscores, hyphens only)
+    // Validate map name
     if (!/^[a-zA-Z0-9_-]+$/.test(mapName)) {
         alert('Map name can only contain letters, numbers, underscores, and hyphens');
         return;
@@ -159,7 +314,8 @@ async function generateMap() {
     const request = {
         name: mapName,
         bbox: selectedBounds,
-        resolution: parseInt(document.getElementById('resolution').value),
+        resolution: resolution,
+        export_engine: exportEngine,
         enable_ai_analysis: document.getElementById('enableAI').checked,
         enable_roads: document.getElementById('enableRoads').checked,
         enable_traffic_lights: document.getElementById('enableTrafficLights').checked,
@@ -169,74 +325,76 @@ async function generateMap() {
     };
 
     // Disable generate button
-    document.getElementById('generateBtn').disabled = true;
-    document.getElementById('generateBtn').textContent = 'Generating...';
-
-    // Show status panel
-    document.getElementById('status').style.display = 'block';
-    document.getElementById('result').style.display = 'none';
+    const generateBtn = document.getElementById('generateBtn');
+    generateBtn.disabled = true;
+    generateBtn.innerHTML = '<span class="spinner"></span> Generating...';
 
     try {
         const response = await fetch(`${API_BASE_URL}/api/generate`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(request)
         });
 
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Generation failed');
+        const data = await response.json();
+
+        if (response.ok) {
+            // Show status and poll for progress
+            showProgress(data.task_id, mapName);
+        } else {
+            alert('Error: ' + (data.detail || 'Failed to start generation'));
+            generateBtn.disabled = false;
+            generateBtn.textContent = '🚀 Generate Map';
         }
-
-        const status = await response.json();
-        
-        // For demo purposes, simulate progress
-        // In production, you would poll the status endpoint
-        simulateProgress(mapName);
-
     } catch (error) {
-        console.error('Generation error:', error);
-        alert(`Error: ${error.message}`);
-        document.getElementById('generateBtn').disabled = false;
-        document.getElementById('generateBtn').textContent = 'Generate Map';
-        document.getElementById('status').style.display = 'none';
+        console.error('Generation failed:', error);
+        alert('Failed to connect to server');
+        generateBtn.disabled = false;
+        generateBtn.textContent = '🚀 Generate Map';
     }
 }
 
-// Simulate generation progress (in production, poll the status endpoint)
-function simulateProgress(mapName) {
-    let progress = 0;
-    const steps = [
-        'Extracting OpenStreetMap data',
-        'Analyzing terrain with AI',
-        'Generating heightmap',
-        'Optimizing infrastructure placement',
-        'Exporting to BeamNG.drive format'
-    ];
-    let currentStep = 0;
+// Show and update progress
+function showProgress(taskId, mapName) {
+    const statusDiv = document.getElementById('status');
+    const resultDiv = document.getElementById('result');
+    
+    statusDiv.style.display = 'block';
+    resultDiv.style.display = 'none';
 
-    const interval = setInterval(() => {
-        progress += Math.random() * 15;
-        if (progress > 100) progress = 100;
+    // Poll for status
+    const pollInterval = setInterval(async () => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/tasks/${taskId}`);
+            const status = await response.json();
 
-        document.getElementById('progressFill').style.width = progress + '%';
-        document.getElementById('statusText').textContent = `Progress: ${progress.toFixed(0)}%`;
+            updateProgressDisplay(status);
 
-        if (progress >= 20 * (currentStep + 1) && currentStep < steps.length) {
-            document.getElementById('statusStep').textContent = steps[currentStep];
-            currentStep++;
+            if (status.status === 'completed') {
+                clearInterval(pollInterval);
+                showResult(mapName);
+            } else if (status.status === 'failed') {
+                clearInterval(pollInterval);
+                showError(status.error || 'Generation failed');
+            }
+        } catch (error) {
+            console.error('Status check failed:', error);
         }
-
-        if (progress >= 100) {
-            clearInterval(interval);
-            showResult(mapName);
-        }
-    }, 500);
+    }, 1000);
 }
 
-// Show generation result
+// Update progress display
+function updateProgressDisplay(status) {
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    const currentStep = document.getElementById('currentStep');
+
+    progressBar.style.width = status.progress + '%';
+    progressText.textContent = Math.round(status.progress) + '%';
+    currentStep.textContent = status.current_step || 'Processing...';
+}
+
+// Show result
 function showResult(mapName) {
     document.getElementById('status').style.display = 'none';
     document.getElementById('result').style.display = 'block';
@@ -276,17 +434,34 @@ function showResult(mapName) {
 
     // Re-enable generate button
     document.getElementById('generateBtn').disabled = false;
-    document.getElementById('generateBtn').textContent = 'Generate Map';
+    document.getElementById('generateBtn').textContent = '🚀 Generate Map';
+}
+
+// Show error
+function showError(errorMessage) {
+    document.getElementById('status').style.display = 'none';
+    document.getElementById('result').style.display = 'block';
+    document.getElementById('resultMessage').innerHTML = `
+        <div class="alert alert-danger">
+            <h4>✗ Generation Failed</h4>
+            <p>${errorMessage}</p>
+            <button class="btn btn-primary" onclick="location.reload()">Try Again</button>
+        </div>
+    `;
+
+    // Re-enable generate button
+    document.getElementById('generateBtn').disabled = false;
+    document.getElementById('generateBtn').textContent = '🚀 Generate Map';
 }
 
 // Initialize application
 document.addEventListener('DOMContentLoaded', function() {
     initMap();
     checkHealth();
-
-    // Set up generate button
-    document.getElementById('generateBtn').addEventListener('click', generateMap);
-
+    
     // Check health every 30 seconds
     setInterval(checkHealth, 30000);
+    
+    // Setup generate button
+    document.getElementById('generateBtn').addEventListener('click', generateMap);
 });
