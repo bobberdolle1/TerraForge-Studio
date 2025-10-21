@@ -21,9 +21,6 @@ logger = logging.getLogger(__name__)
 class OSMExtractor:
     """Extract and process OpenStreetMap data"""
     
-    # TEMPORARY: Use mock data to bypass slow Overpass API
-    USE_MOCK_DATA = True
-    
     def __init__(self):
         # Configure osmnx settings
         ox.settings.use_cache = settings.osm_cache_enabled
@@ -96,23 +93,6 @@ class OSMExtractor:
     
     def extract_roads(self, bbox: BoundingBox) -> List[RoadSegment]:
         """Extract road network from OSM"""
-        if self.USE_MOCK_DATA:
-            logger.info("Using MOCK road data (Overpass API bypassed)")
-            # Generate minimal mock roads for testing
-            center_lat = (bbox.north + bbox.south) / 2
-            center_lon = (bbox.east + bbox.west) / 2
-            return [
-                RoadSegment(
-                    coordinates=[
-                        (center_lat, center_lon - 0.001),
-                        (center_lat, center_lon + 0.001)
-                    ],
-                    road_type="primary",
-                    lanes=2,
-                    oneway=False
-                )
-            ]
-        
         try:
             # Use graph_from_bbox with smaller network_type to reduce query size
             logger.info(f"Requesting road network from Overpass API...")
@@ -180,11 +160,7 @@ class OSMExtractor:
             return []
     
     def extract_buildings(self, bbox: BoundingBox) -> List[Building]:
-        """Extract building footprints from OSM"""
-        if self.USE_MOCK_DATA:
-            logger.info("Using MOCK building data")
-            return []
-        
+        """Extract buildings from OSM"""
         try:
             buildings_gdf = ox.features.features_from_bbox(
                 bbox=(bbox.north, bbox.south, bbox.east, bbox.west),
@@ -238,12 +214,8 @@ class OSMExtractor:
             logger.error(f"Error extracting buildings: {e}")
             return []
     
-    def extract_traffic_features(self, bbox: BoundingBox) -> Dict[str, List]:
-        """Extract traffic lights and parking lots"""
-        if self.USE_MOCK_DATA:
-            logger.info("Using MOCK traffic features data")
-            return {'traffic_lights': [], 'parking_lots': []}
-        
+    def extract_traffic_lights(self, bbox: BoundingBox) -> List[TrafficLight]:
+        """Extract traffic lights from OSM"""
         try:
             traffic_gdf = ox.features.features_from_bbox(
                 bbox=(bbox.north, bbox.south, bbox.east, bbox.west),
@@ -261,6 +233,15 @@ class OSMExtractor:
                         direction=row.get('direction')
                     ))
             
+            return traffic_lights
+            
+        except Exception as e:
+            logger.error(f"Error extracting traffic lights: {e}")
+            return []
+    
+    def extract_parking(self, bbox: BoundingBox) -> List[ParkingLot]:
+        """Extract parking lots from OSM"""
+        try:
             parking_gdf = ox.features.features_from_bbox(
                 bbox=(bbox.north, bbox.south, bbox.east, bbox.west),
                 tags={'amenity': 'parking'}
@@ -302,10 +283,6 @@ class OSMExtractor:
     
     def extract_vegetation(self, bbox: BoundingBox) -> List[VegetationArea]:
         """Extract vegetation areas from OSM"""
-        if self.USE_MOCK_DATA:
-            logger.info("Using MOCK vegetation data")
-            return []
-        
         try:
             # Extract forests and parks
             vegetation_gdf = ox.features.features_from_bbox(
