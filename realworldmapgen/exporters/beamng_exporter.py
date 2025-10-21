@@ -33,14 +33,23 @@ class BeamNGExporter:
         """
         logger.info(f"Exporting map '{map_data.name}' to BeamNG.drive format")
         
-        map_dir = self.output_dir / map_data.name
+        # output_dir already contains map name, no need to add it again
+        map_dir = self.output_dir
         map_dir.mkdir(parents=True, exist_ok=True)
         
         exported_files = {}
         
-        # Export terrain/heightmap
+        # Export terrain/heightmap (copy to output dir if not already there)
         if map_data.heightmap_path:
-            exported_files['heightmap'] = Path(map_data.heightmap_path)
+            heightmap_src = Path(map_data.heightmap_path)
+            if heightmap_src.parent != map_dir:
+                # Copy heightmap to map directory
+                import shutil
+                heightmap_dest = map_dir / heightmap_src.name
+                shutil.copy2(heightmap_src, heightmap_dest)
+                exported_files['heightmap'] = heightmap_dest
+            else:
+                exported_files['heightmap'] = heightmap_src
         
         # Export road network
         exported_files['roads'] = self._export_roads(map_data.roads, map_dir)

@@ -29,21 +29,25 @@ class HeightmapGenerator:
     async def generate_heightmap(
         self,
         bbox: BoundingBox,
-        resolution: int,
-        name: str
+        resolution: int = 2048,
+        map_name: str = "map"
     ) -> Tuple[Path, np.ndarray]:
         """
         Generate heightmap for the given bounding box
         
         Args:
             bbox: Geographic bounding box
-            resolution: Output resolution (width and height in pixels)
-            name: Name for the output file
+            resolution: Output heightmap resolution
+            map_name: Name of the map (for filename)
             
         Returns:
-            Tuple of (output_path, elevation_array)
+            Tuple of (heightmap file path, elevation data array)
         """
-        logger.info(f"Generating heightmap for {name} at resolution {resolution}x{resolution}")
+        logger.info(f"Generating heightmap for {bbox} at resolution {resolution}")
+        
+        # Create output directory for this map
+        map_output_dir = settings.output_dir / map_name
+        map_output_dir.mkdir(parents=True, exist_ok=True)
         
         try:
             # Download elevation data using elevation package
@@ -56,13 +60,8 @@ class HeightmapGenerator:
                 resolution
             )
             
-            # Normalize and convert to heightmap image
-            output_path = self.output_dir / f"{name}_heightmap.png"
-            self._save_heightmap(resampled_data, output_path)
-            
-            # Also save raw elevation data
-            raw_path = self.output_dir / f"{name}_elevation.npy"
-            np.save(raw_path, resampled_data)
+            # Save as 16-bit PNG to map directory
+            output_path = self._save_heightmap(resampled_data, map_name, map_output_dir)
             
             logger.info(f"Heightmap saved to {output_path}")
             return output_path, resampled_data
@@ -71,8 +70,7 @@ class HeightmapGenerator:
             logger.error(f"Error generating heightmap: {e}")
             # Return a flat heightmap as fallback
             flat_data = np.zeros((resolution, resolution), dtype=np.float32)
-            output_path = self.output_dir / f"{name}_heightmap.png"
-            self._save_heightmap(flat_data, output_path)
+            output_path = self._save_heightmap(flat_data, map_name, map_output_dir)
             return output_path, flat_data
     
     async def _download_elevation_data(self, bbox: BoundingBox) -> np.ndarray:
@@ -122,25 +120,26 @@ class HeightmapGenerator:
         
         return np.array(resampled, dtype=np.float32)
     
-    def _save_heightmap(self, elevation_data: np.ndarray, output_path: Path):
-        """Save elevation data as 16-bit grayscale heightmap"""
-        # Normalize to 0-65535 range for 16-bit PNG
-        min_elev = elevation_data.min()
-        max_elev = elevation_data.max()
+    def _save_heightmap(self, data: np.ndarray, map_name: str, output_dir: Path) -> Path:
+        """Save heightmap as 16-bit PNG"""
+        # Normalize to 16-bit range
+        min_val = data.min()
+        max_val = data.max()
         
-        if max_elev > min_elev:
-            normalized = (elevation_data - min_elev) / (max_elev - min_elev)
+        if max_val > min_val:
+            normalized = ((data - min_val) / (max_val - min_val) * 65535).astype(np.uint16)
         else:
-            normalized = np.zeros_like(elevation_data)
+            normalized = np.zeros_like(data, dtype=np.uint16)
         
-        # Convert to 16-bit
-        heightmap_16bit = (normalized * 65535).astype(np.uint16)
+        # Save to map directory
+        filename = f"{map_name}_heightmap.png"
+        output_path = output_dir / filename
         
-        # Save as PNG
-        img = Image.fromarray(heightmap_16bit, mode='I;16')
+        from PIL import Image
+        img = Image.fromarray(normalized, mode='I;16')
         img.save(output_path)
         
-        logger.info(f"Heightmap saved: min={min_elev:.2f}m, max={max_elev:.2f}m")
+        return output_path
     
     def get_elevation_at_point(
         self,

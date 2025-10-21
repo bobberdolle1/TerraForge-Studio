@@ -23,10 +23,10 @@ class OSMExtractor:
     
     def __init__(self):
         # Configure osmnx
-        ox.settings.use_cache = settings.osm_cache_enabled
-        ox.settings.cache_folder = str(settings.cache_dir / "osm")
-        ox.settings.timeout = settings.osm_timeout
-        ox.settings.log_console = False
+        ox.config(use_cache=settings.osm_cache_enabled,
+                  cache_folder=str(settings.cache_dir / "osm"),
+                  timeout=settings.osm_timeout,
+                  log_console=False)
         
     def extract_all_data(
         self, 
@@ -62,9 +62,12 @@ class OSMExtractor:
     def extract_roads(self, bbox: BoundingBox) -> List[RoadSegment]:
         """Extract road network from OSM"""
         try:
-            # Get road network
-            G = ox.graph_from_bbox(
-                bbox.north, bbox.south, bbox.east, bbox.west,
+            # Get road network using new API
+            G = ox.graph.graph_from_bbox(
+                north=bbox.north,
+                south=bbox.south,
+                east=bbox.east,
+                west=bbox.west,
                 network_type='all',
                 simplify=True
             )
@@ -127,8 +130,11 @@ class OSMExtractor:
     def extract_buildings(self, bbox: BoundingBox) -> List[Building]:
         """Extract buildings from OSM"""
         try:
-            buildings_gdf = ox.features_from_bbox(
-                bbox.north, bbox.south, bbox.east, bbox.west,
+            buildings_gdf = ox.features.features_from_bbox(
+                north=bbox.north,
+                south=bbox.south,
+                east=bbox.east,
+                west=bbox.west,
                 tags={'building': True}
             )
             
@@ -182,8 +188,11 @@ class OSMExtractor:
     def extract_traffic_lights(self, bbox: BoundingBox) -> List[TrafficLight]:
         """Extract traffic lights from OSM"""
         try:
-            traffic_gdf = ox.features_from_bbox(
-                bbox.north, bbox.south, bbox.east, bbox.west,
+            traffic_gdf = ox.features.features_from_bbox(
+                north=bbox.north,
+                south=bbox.south,
+                east=bbox.east,
+                west=bbox.west,
                 tags={'highway': 'traffic_signals'}
             )
             
@@ -207,8 +216,11 @@ class OSMExtractor:
     def extract_parking(self, bbox: BoundingBox) -> List[ParkingLot]:
         """Extract parking areas from OSM"""
         try:
-            parking_gdf = ox.features_from_bbox(
-                bbox.north, bbox.south, bbox.east, bbox.west,
+            parking_gdf = ox.features.features_from_bbox(
+                north=bbox.north,
+                south=bbox.south,
+                east=bbox.east,
+                west=bbox.west,
                 tags={'amenity': 'parking'}
             )
             
@@ -250,8 +262,11 @@ class OSMExtractor:
         """Extract vegetation areas from OSM"""
         try:
             # Extract forests and parks
-            vegetation_gdf = ox.features_from_bbox(
-                bbox.north, bbox.south, bbox.east, bbox.west,
+            vegetation_gdf = ox.features.features_from_bbox(
+                north=bbox.north,
+                south=bbox.south,
+                east=bbox.east,
+                west=bbox.west,
                 tags={'natural': ['wood', 'tree', 'tree_row'], 
                       'landuse': ['forest', 'grass', 'meadow']}
             )

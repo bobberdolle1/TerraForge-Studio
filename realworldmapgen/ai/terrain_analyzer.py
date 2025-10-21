@@ -9,15 +9,17 @@ import asyncio
 
 from .ollama_client import OllamaClient
 from ..models import AIAnalysisResult, TerrainType, BoundingBox
+from ..imagery import ImageryDownloader
 
 logger = logging.getLogger(__name__)
 
 
 class TerrainAnalyzer:
-    """Analyzes terrain using satellite imagery and AI"""
+    """Analyze terrain using AI models"""
     
-    def __init__(self, ollama_client: Optional[OllamaClient] = None):
-        self.client = ollama_client or OllamaClient()
+    def __init__(self, ollama_client: OllamaClient):
+        self.ollama = ollama_client
+        self.imagery_downloader = ImageryDownloader() or OllamaClient()
     
     async def analyze_satellite_image(
         self, 
@@ -55,7 +57,7 @@ CONFIDENCE: [0.0-1.0]
         
         try:
             logger.info(f"Starting AI analysis of satellite image: {image_path}")
-            response = await self.client.analyze_image(image_path, prompt)
+            response = await self.ollama.analyze_image(image_path, prompt)
             
             # Parse the response
             result = self._parse_analysis_response(response)
