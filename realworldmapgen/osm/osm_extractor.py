@@ -28,6 +28,15 @@ class OSMExtractor:
         ox.settings.timeout = settings.osm_timeout
         ox.settings.log_console = False
         
+        # Increase max query area size to avoid splitting into too many sub-queries
+        # Default is 50000000 (50 km²), increase to 500000000 (500 km²)
+        ox.settings.max_query_area_size = 500000000
+        
+        # Set reasonable defaults for download
+        ox.settings.requests_timeout = 60  # 60 seconds per request
+        ox.settings.memory = None  # Use default Overpass memory
+        ox.settings.all_oneway = False
+        
     def extract_all_data(
         self, 
         bbox: BoundingBox
