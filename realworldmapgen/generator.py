@@ -53,13 +53,20 @@ class MapGenerator:
         if task_id is None:
             task_id = str(uuid.uuid4())
         
-        status = GenerationStatus(
-            task_id=task_id,
-            status="processing",
-            progress=0.0,
-            current_step="Initializing"
-        )
-        self.active_tasks[task_id] = status
+        # Get existing status or create new one
+        if task_id in self.active_tasks:
+            status = self.active_tasks[task_id]
+            status.status = "processing"
+            status.progress = 0.0
+            status.current_step = "Initializing"
+        else:
+            status = GenerationStatus(
+                task_id=task_id,
+                status="processing",
+                progress=0.0,
+                current_step="Initializing"
+            )
+            self.active_tasks[task_id] = status
         
         try:
             logger.info(f"Starting map generation for '{request.name}' (task: {task_id})")

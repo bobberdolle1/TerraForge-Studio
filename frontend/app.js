@@ -382,19 +382,28 @@ function showProgress(taskId, mapName) {
     resultDiv.style.display = 'none';
 
     // Poll for status
+    let retryCount = 0;
+    const maxRetries = 5;
+    
     const pollInterval = setInterval(async () => {
         try {
             const response = await fetch(`${API_BASE_URL}/api/tasks/${taskId}`);
             
             if (!response.ok) {
-                // Task might be completed already
                 if (response.status === 404) {
-                    clearInterval(pollInterval);
-                    showResult(mapName);
+                    // Task not found yet - might still be initializing
+                    retryCount++;
+                    if (retryCount > maxRetries) {
+                        clearInterval(pollInterval);
+                        showError('Task not found. Generation may have failed to start.');
+                    }
                     return;
                 }
                 throw new Error(`HTTP ${response.status}`);
             }
+            
+            // Reset retry count on successful response
+            retryCount = 0;
             
             const status = await response.json();
             updateProgressDisplay(status);
