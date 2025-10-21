@@ -18,29 +18,70 @@ A comprehensive tool for generating detailed and functional real-world maps for 
 
 ### ✨ Key Features
 
-- 🌍 **Real-World Data Integration** - Extract geographic data from OpenStreetMap for any location
-- 🤖 **AI-Powered Analysis** - Uses Qwen3-VL and Qwen3-Coder via Ollama for intelligent terrain analysis
-- 🏔️ **Heightmap Generation** - Creates detailed elevation data from SRTM sources
-- 🛣️ **Road Network Generation** - Automatically generates roads with proper types, lanes, and materials
-- 🚦 **Traffic Infrastructure** - Places traffic lights and creates parking lots based on OSM data
-- 🏢 **Building Placement** - Extracts and positions buildings with height information
-- 🌳 **Vegetation Distribution** - Generates trees and vegetation areas based on terrain analysis
-- 🎮 **BeamNG.drive Export** - Outputs all data in BeamNG.drive-compatible formats
-- 🌐 **Web Interface** - Interactive map selection with Leaflet integration
-- 🐳 **Docker Support** - Fully containerized with Docker Compose
+**🤖 Advanced AI Analysis:**
+- 🛰️ **Satellite Imagery Analysis** - Downloads and analyzes real satellite images (OSM, Mapbox, Bing Maps)
+- 🔍 **Detailed Road Detection** - AI extracts road width, lane count, markings, surface type, and condition
+- 🏗️ **Building Analysis** - Precise footprint boundaries, height from shadows, roof types, materials
+- 🌳 **Surface Classification** - Identifies paved areas, vegetation, water bodies, bare ground
+- 🚗 **AI-Optimized Traffic** - Qwen3-Coder generates intelligent traffic routes and driver behaviors
+
+**🎮 Multi-Engine Export:**
+- 🏁 **BeamNG.drive** - Complete mod packages with traffic system integration
+- 🎨 **Unreal Engine 5** - Landscape heightmaps, road splines, static mesh placement
+- 🎯 **Unity** - Terrain data, GameObject instantiation, mesh generation
+- 📦 **One-Click Packaging** - Auto-generated .zip mods ready to install
+
+**🗺️ Advanced Mapping:**
+- 🌍 **Real-World Data** - Extract from OpenStreetMap for any location worldwide
+- 🏔️ **Elevation Data** - SRTM-based heightmap generation
+- 🛣️ **Smart Road Networks** - Automatic road types, lanes, materials, widths
+- 🚦 **Traffic Infrastructure** - Lights, parking, spawn points, AI behaviors
+- 🏢 **Building Placement** - Height info, types, custom prefab support
+- 🎨 **Custom Prefabs** - Import your own 3D models (.jbeam, .fbx, .obj, .gltf)
+
+**⚡ Performance & Workflow:**
+- 🔄 **Incremental Updates** - Update only changed parts of existing maps
+- 📊 **Batch Processing** - Generate multiple maps in parallel
+- 🖼️ **Map Preview** - Visual overlays with statistics
+- 💾 **Smart Caching** - Imagery and OSM data caching
+
+**🌐 Modern Web Interface:**
+- 🎨 **Glassmorphism UI** - Beautiful modern design with animations
+- 🔧 **Advanced Selection Tools** - Rectangle, polygon, circle area selection
+- 🔍 **Location Search** - Find any place worldwide instantly
+- 🗺️ **Multiple Basemaps** - OSM, Humanitarian, Satellite views
+- 📍 **Real-time Coordinates** - Mouse position and area statistics
+- 🐳 **Docker Ready** - Fully containerized with Docker Compose
 
 ### 🏗️ Architecture
 
 ```
 RealWorldMapGen-BNG/
 ├── realworldmapgen/              # Core Python package
-│   ├── ai/                       # AI integration (Ollama)
+│   ├── ai/                       # AI integration (Ollama + Qwen models)
+│   │   ├── ollama_client.py      # Ollama API client
+│   │   └── terrain_analyzer.py   # Advanced vision analysis
+│   ├── imagery/                  # Satellite imagery downloader
 │   ├── osm/                      # OpenStreetMap extraction
 │   ├── elevation/                # Heightmap generation
-│   ├── exporters/                # BeamNG.drive exporters
-│   ├── api/                      # FastAPI backend
+│   ├── traffic/                  # AI traffic route generation
+│   │   ├── traffic_generator.py  # Route optimization
+│   │   └── beamng_traffic.py     # BeamNG integration
+│   ├── prefabs/                  # Custom prefab management
+│   ├── preview/                  # Map preview generator
+│   ├── packaging/                # BeamNG mod packager
+│   ├── incremental/              # Incremental updates
+│   ├── exporters/                # Multi-engine exporters
+│   │   ├── beamng_exporter.py    # BeamNG.drive
+│   │   ├── unreal_exporter.py    # Unreal Engine 5
+│   │   └── unity_exporter.py     # Unity
+│   ├── api/                      # FastAPI REST API
 │   └── generator.py              # Main orchestrator
-├── frontend/                     # Web interface
+├── frontend/                     # Modern web interface
+│   ├── index.html                # UI layout
+│   ├── style.css                 # Glassmorphism design
+│   └── app.js                    # Advanced map controls
+├── docs/                         # Documentation
 ├── docker-compose.yml            # Docker orchestration
 └── pyproject.toml                # Poetry dependencies
 ```
@@ -93,14 +134,26 @@ docker-compose up -d
 
 #### Web Interface
 
-1. Open browser at `http://localhost:8080`
-2. Use the rectangle tool to select an area on the map
-3. Configure generation options:
-   - Map name
+1. **Open** browser at `http://localhost:8080`
+2. **Search** for a location (or navigate manually on the map)
+3. **Select Area** using one of three tools:
+   - 🔲 **Rectangle** - Click and drag to create a rectangular area
+   - 🔺 **Polygon** - Click points to draw a custom polygon shape
+   - ⭕ **Circle** - Click and drag to create a circular area
+4. **Configure** generation options:
+   - Map name (alphanumeric, underscores, hyphens)
+   - Export format (BeamNG.drive, Unreal Engine 5, Unity, or All)
    - Heightmap resolution (1024/2048/4096)
-   - Enable/disable features (AI, roads, traffic, buildings, etc.)
-4. Click "Generate Map"
-5. Download generated files when complete
+   - Enable/disable features (AI analysis, roads, traffic, buildings, vegetation)
+5. **Generate** - Click the "🚀 Generate Map" button
+6. **Download** - Get your .zip mod or individual files when complete
+
+**Map Controls:**
+- 🔍 Location search with autocomplete
+- 📍 Real-time coordinate display
+- 📐 Selected area info (bounds + size in km²)
+- 🗺️ Switch between OSM, Humanitarian, and Satellite views
+- ❌ Clear selection or 🎯 Fit map to selection
 
 #### API Example
 
@@ -116,6 +169,7 @@ curl -X POST "http://localhost:8000/api/generate" \
       "west": -122.41
     },
     "resolution": 2048,
+    "export_engine": "beamng",
     "enable_ai_analysis": true,
     "enable_roads": true,
     "enable_traffic_lights": true,
@@ -127,19 +181,35 @@ curl -X POST "http://localhost:8000/api/generate" \
 
 ### 🎮 Importing to BeamNG.drive
 
+**Easy Installation (Recommended):**
+1. Download the `.zip` file from the web interface
+2. Extract to `<BeamNG.drive>/mods/` directory
+3. Launch BeamNG.drive - your map will be available automatically!
+
+**Manual Installation:**
 1. Locate generated map in `output/<map_name>/` directory
-2. Copy files to BeamNG.drive levels directory:
+2. Copy the entire folder to:
    ```
    <BeamNG.drive>/levels/<map_name>/
    ```
-3. Required files:
-   - `main.level.json` - Main level configuration
+3. Files included:
+   - `main.level.json` - Level configuration
    - `<map_name>_heightmap.png` - Terrain heightmap
    - `roads.json` - Road network data
    - `objects.json` - Buildings and vegetation
-   - `traffic.json` - Traffic lights and parking
+   - `traffic.json` - Traffic system (lights, parking, spawn points, AI behaviors)
    - `info.json` - Map metadata
-4. Launch BeamNG.drive and load your custom map
+4. Launch BeamNG.drive and select your custom map
+
+**For Unreal Engine 5:**
+- Import `.raw` heightmap using the Python script provided
+- Load road splines and static mesh placement JSON
+- See `docs/UNREAL_IMPORT.md` for details
+
+**For Unity:**
+- Import `.raw` terrain heightmap
+- Use the C# Editor script for automatic setup
+- See `docs/UNITY_IMPORT.md` for details
 
 ### ⚙️ Configuration
 
@@ -173,9 +243,11 @@ MAX_WORKERS=4
 - NumPy/SciPy - Numerical computing
 
 **Frontend:**
-- Leaflet - Interactive maps
-- Leaflet.draw - Drawing tools
-- Vanilla JavaScript
+- Leaflet - Interactive maps with multiple basemap layers
+- Leaflet.draw - Advanced drawing tools (rectangle, polygon, circle)
+- Nominatim - Location search API
+- Modern CSS (Glassmorphism, animations)
+- Vanilla JavaScript ES6+
 
 **Infrastructure:**
 - Docker & Docker Compose - Containerization
@@ -195,13 +267,32 @@ MAX_WORKERS=4
 
 ### 📝 Roadmap
 
-- [ ] Real satellite imagery download and analysis
-- [ ] AI-optimized traffic route generation
-- [ ] Support for custom object prefabs
-- [ ] Export to other game engines (Unreal, Unity)
-- [ ] Map preview generation
-- [ ] Batch processing for multiple areas
-- [ ] Incremental updates to existing maps
+**Completed ✅:**
+- ✅ Real satellite imagery download and analysis (OSM, Mapbox, Bing Maps)
+- ✅ Advanced AI vision analysis (road width, lanes, markings, building heights)
+- ✅ AI-optimized traffic route generation with BeamNG integration
+- ✅ Support for custom object prefabs (.jbeam, .fbx, .obj, .gltf)
+- ✅ Export to Unreal Engine 5 and Unity
+- ✅ Map preview generation with statistics
+- ✅ Batch processing for multiple areas
+- ✅ Incremental updates to existing maps
+- ✅ One-click .zip mod packaging
+- ✅ Modern glassmorphism UI with advanced map controls
+
+**In Progress 🚧:**
+- 🚧 3D map preview rendering
+- 🚧 Road texture generation based on AI analysis
+- 🚧 Procedural building mesh generation
+
+**Planned 📋:**
+- 📋 Real-time collaborative map editing
+- 📋 Cloud-based generation (no local Ollama needed)
+- 📋 BeamNG.drive lua script generation for dynamic events
+- 📋 Integration with more data sources (Google Earth Engine, Mapbox)
+- 📋 Advanced vegetation placement with ecosystem simulation
+- 📋 Water body detection and generation (rivers, lakes)
+- 📋 Procedural city generation for empty areas
+- 📋 Support for other games (Assetto Corsa, rFactor 2)
 
 ### 🤝 Contributing
 
