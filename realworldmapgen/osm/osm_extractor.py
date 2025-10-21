@@ -29,8 +29,9 @@ class OSMExtractor:
         ox.settings.log_console = False
         
         # Increase max query area size to avoid splitting into too many sub-queries
-        # Default is 50000000 (50 km²), increase to 500000000 (500 km²)
-        ox.settings.max_query_area_size = 500000000
+        # Default is 50000000 (~0.05 km² in projection), increase to 50000000000 (50000 km²)
+        # This is the projected area in square meters, not geographic area
+        ox.settings.max_query_area_size = 50000000000
         
         # Set reasonable defaults for download
         ox.settings.requests_timeout = 60  # 60 seconds per request
@@ -51,12 +52,32 @@ class OSMExtractor:
             Dictionary containing roads, buildings, traffic lights, etc.
         """
         logger.info(f"Extracting OSM data for bbox: {bbox}")
+        logger.info(f"Area: {bbox.area_km2():.2f} km²")
+        
+        import time
+        start = time.time()
+        
+        logger.info("[1/5] Extracting roads...")
+        roads = self.extract_roads(bbox)
+        logger.info(f"[1/5] Roads extracted: {len(roads)} in {time.time()-start:.1f}s")
+        
+        logger.info("[2/5] Extracting buildings...")
+        buildings = self.extract_buildings(bbox)
+        logger.info(f"[2/5] Buildings extracted: {len(buildings)} in {time.time()-start:.1f}s")
+        
+        logger.info("[3/5] Extracting traffic lights...")
+        traffic_lights = self.extract_traffic_lights(bbox)
+        logger.info(f"[3/5] Traffic lights extracted: {len(traffic_lights)} in {time.time()-start:.1f}s")
+        
+        logger.info("[4/5] Extracting parking...")
+        parking_lots = self.extract_parking(bbox)
+        logger.info(f"[4/5] Parking lots extracted: {len(parking_lots)} in {time.time()-start:.1f}s")
         
         result = {
-            "roads": self.extract_roads(bbox),
-            "buildings": self.extract_buildings(bbox),
-            "traffic_lights": self.extract_traffic_lights(bbox),
-            "parking_lots": self.extract_parking(bbox),
+            "roads": roads,
+            "buildings": buildings,
+            "traffic_lights": traffic_lights,
+            "parking_lots": parking_lots,
             "vegetation": self.extract_vegetation(bbox)
         }
         

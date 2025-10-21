@@ -140,9 +140,13 @@ async def generate_map(
     
     async def run_generation():
         try:
+            logger.info(f"Background task starting for {task_id}")
             await generator.generate_map(request, task_id)
+            logger.info(f"Background task completed for {task_id}")
         except Exception as e:
+            import traceback
             logger.error(f"Background generation failed: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
             # Update task status on error
             if task_id in generator.active_tasks:
                 generator.active_tasks[task_id].status = "failed"
