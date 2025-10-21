@@ -155,6 +155,7 @@ async def generate_map(
 
 
 @app.get("/api/status/{task_id}", response_model=GenerationStatus)
+@app.get("/api/tasks/{task_id}", response_model=GenerationStatus)
 async def get_generation_status(task_id: str):
     """
     Get status of a generation task
