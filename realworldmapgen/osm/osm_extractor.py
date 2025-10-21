@@ -22,11 +22,11 @@ class OSMExtractor:
     """Extract and process OpenStreetMap data"""
     
     def __init__(self):
-        # Configure osmnx
-        ox.config(use_cache=settings.osm_cache_enabled,
-                  cache_folder=str(settings.cache_dir / "osm"),
-                  timeout=settings.osm_timeout,
-                  log_console=False)
+        # Configure osmnx settings
+        ox.settings.use_cache = settings.osm_cache_enabled
+        ox.settings.cache_folder = str(settings.cache_dir / "osm")
+        ox.settings.timeout = settings.osm_timeout
+        ox.settings.log_console = False
         
     def extract_all_data(
         self, 
