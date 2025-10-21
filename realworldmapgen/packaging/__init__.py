@@ -1,5 +1,5 @@
 """
-BeamNG.drive package creation
+Packaging module for creating distributable mod files
 """
 
 from .beamng_packager import BeamNGPackager

@@ -1,8 +1,8 @@
 """
-Traffic route generation and optimization
+Traffic generation and management module
 """
 
 from .traffic_generator import TrafficGenerator
-from .beamng_traffic import BeamNGTrafficIntegrator
+from .beamng_traffic import BeamNGTrafficSystem
 
-__all__ = ['TrafficGenerator', 'BeamNGTrafficIntegrator']
+__all__ = ['TrafficGenerator', 'BeamNGTrafficSystem']

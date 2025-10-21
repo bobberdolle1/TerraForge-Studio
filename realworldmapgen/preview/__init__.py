@@ -1,5 +1,5 @@
 """
-Map preview generation
+Preview generation module
 """
 
 from .preview_generator import PreviewGenerator

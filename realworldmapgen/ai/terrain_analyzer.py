@@ -19,7 +19,7 @@ class TerrainAnalyzer:
     
     def __init__(self, ollama_client: OllamaClient):
         self.ollama = ollama_client
-        self.imagery_downloader = ImageryDownloader() or OllamaClient()
+        self.imagery_downloader = ImageryDownloader()
     
     async def analyze_satellite_image_detailed(
         self,

@@ -106,52 +106,76 @@ class OSMExtractor:
             
             roads = []
             for u, v, data in G.edges(data=True):
-                # Get geometry
-                if 'geometry' in data:
-                    coords = [(point[1], point[0]) for point in data['geometry'].coords]
-                else:
-                    # Use node coordinates
-                    u_coords = (G.nodes[u]['y'], G.nodes[u]['x'])
-                    v_coords = (G.nodes[v]['y'], G.nodes[v]['x'])
-                    coords = [u_coords, v_coords]
-                
-                # Determine road type
-                highway = data.get('highway', 'unclassified')
-                if isinstance(highway, list):
-                    highway = highway[0]
-                
-                road_type = self._map_highway_to_road_type(highway)
-                
-                # Get additional properties
-                lanes = data.get('lanes', 1)
-                if isinstance(lanes, str):
-                    try:
-                        lanes = int(lanes)
-                    except ValueError:
-                        lanes = 1
-                
-                max_speed = data.get('maxspeed')
-                if isinstance(max_speed, str):
-                    try:
-                        max_speed = int(max_speed.replace('km/h', '').strip())
-                    except (ValueError, AttributeError):
-                        max_speed = None
-                
-                oneway = data.get('oneway', False)
-                if isinstance(oneway, str):
-                    oneway = oneway.lower() in ['yes', 'true', '1']
-                
-                roads.append(RoadSegment(
-                    osm_id=str(data.get('osmid', f"{u}_{v}")),
-                    road_type=road_type,
-                    geometry=coords,
-                    name=data.get('name'),
-                    lanes=lanes,
-                    width=self._estimate_road_width(road_type, lanes),
-                    max_speed=max_speed,
-                    oneway=bool(oneway),
-                    surface=data.get('surface')
-                ))
+                try:
+                    # Get geometry - handle different formats
+                    if 'geometry' in data:
+                        # Shapely geometry object
+                        geom = data['geometry']
+                        if hasattr(geom, 'coords'):
+                            coords = [(point[1], point[0]) for point in geom.coords]
+                        else:
+                            # Fallback to node coordinates
+                            u_coords = (G.nodes[u]['y'], G.nodes[u]['x'])
+                            v_coords = (G.nodes[v]['y'], G.nodes[v]['x'])
+                            coords = [u_coords, v_coords]
+                    else:
+                        # Use node coordinates
+                        u_coords = (G.nodes[u]['y'], G.nodes[u]['x'])
+                        v_coords = (G.nodes[v]['y'], G.nodes[v]['x'])
+                        coords = [u_coords, v_coords]
+                    
+                    # Validate we have at least 2 points
+                    if len(coords) < 2:
+                        logger.warning(f"Skipping road segment with < 2 points: {data.get('osmid')}")
+                        continue
+                    
+                    # Determine road type
+                    highway = data.get('highway', 'unclassified')
+                    if isinstance(highway, list):
+                        highway = highway[0]
+                    
+                    road_type = self._map_highway_to_road_type(highway)
+                    
+                    # Get additional properties
+                    lanes = data.get('lanes', 1)
+                    if isinstance(lanes, str):
+                        try:
+                            lanes = int(lanes)
+                        except ValueError:
+                            lanes = 1
+                    
+                    max_speed = data.get('maxspeed')
+                    if isinstance(max_speed, str):
+                        try:
+                            max_speed = int(max_speed.replace('km/h', '').strip())
+                        except (ValueError, AttributeError):
+                            max_speed = None
+                    
+                    oneway = data.get('oneway', False)
+                    if isinstance(oneway, str):
+                        oneway = oneway.lower() in ['yes', 'true', '1']
+                    
+                    # Get OSM ID - handle different formats
+                    osmid = data.get('osmid', f"{u}_{v}")
+                    if isinstance(osmid, (list, tuple)):
+                        osmid = str(osmid[0]) if osmid else f"{u}_{v}"
+                    else:
+                        osmid = str(osmid)
+                    
+                    roads.append(RoadSegment(
+                        osm_id=osmid,
+                        road_type=road_type,
+                        geometry=coords,
+                        name=data.get('name'),
+                        lanes=lanes,
+                        width=self._estimate_road_width(road_type, lanes),
+                        max_speed=max_speed,
+                        oneway=bool(oneway),
+                        surface=data.get('surface')
+                    ))
+                except Exception as e:
+                    logger.warning(f"Failed to process road segment: {e}")
+                    continue
             
             return roads
             

@@ -75,19 +75,35 @@ function setupMapControls() {
     // Rectangle tool
     document.getElementById('rectangleTool').addEventListener('click', () => {
         setActiveTool('rectangle');
-        new L.Draw.Rectangle(map, drawControl.options.draw.rectangle).enable();
+        new L.Draw.Rectangle(map, {
+            shapeOptions: {
+                color: '#3388ff',
+                weight: 2
+            }
+        }).enable();
     });
 
     // Polygon tool
     document.getElementById('polygonTool').addEventListener('click', () => {
         setActiveTool('polygon');
-        new L.Draw.Polygon(map, drawControl.options.draw.polygon).enable();
+        new L.Draw.Polygon(map, {
+            shapeOptions: {
+                color: '#3388ff',
+                weight: 2
+            },
+            allowIntersection: false
+        }).enable();
     });
 
     // Circle tool
     document.getElementById('circleTool').addEventListener('click', () => {
         setActiveTool('circle');
-        new L.Draw.Circle(map, drawControl.options.draw.circle).enable();
+        new L.Draw.Circle(map, {
+            shapeOptions: {
+                color: '#3388ff',
+                weight: 2
+            }
+        }).enable();
     });
 
     // Clear selection
@@ -423,13 +439,13 @@ function showProgress(taskId, mapName) {
 
 // Update progress display
 function updateProgressDisplay(status) {
-    const progressBar = document.getElementById('progressBar');
-    const progressText = document.getElementById('progressText');
-    const currentStep = document.getElementById('currentStep');
+    const progressFill = document.getElementById('progressFill');
+    const statusText = document.getElementById('statusText');
+    const statusStep = document.getElementById('statusStep');
 
-    progressBar.style.width = status.progress + '%';
-    progressText.textContent = Math.round(status.progress) + '%';
-    currentStep.textContent = status.current_step || 'Processing...';
+    progressFill.style.width = status.progress + '%';
+    statusText.textContent = Math.round(status.progress) + '% - ' + (status.message || 'Processing...');
+    statusStep.textContent = status.current_step || 'Processing...';
 }
 
 // Show result

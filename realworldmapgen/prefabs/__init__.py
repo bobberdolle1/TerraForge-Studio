@@ -1,5 +1,5 @@
 """
-Custom prefab support system
+Prefab management module
 """
 
 from .prefab_manager import PrefabManager

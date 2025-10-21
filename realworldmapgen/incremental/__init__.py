@@ -1,7 +1,7 @@
 """
-Incremental map update system
+Incremental update management module
 """
 
-from .update_manager import IncrementalUpdateManager
+from .update_manager import UpdateManager
 
-__all__ = ['IncrementalUpdateManager']
+__all__ = ['UpdateManager']
