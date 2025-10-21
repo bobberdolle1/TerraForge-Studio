@@ -21,6 +21,84 @@ class TerrainAnalyzer:
         self.ollama = ollama_client
         self.imagery_downloader = ImageryDownloader() or OllamaClient()
     
+    async def analyze_satellite_image_detailed(
+        self,
+        image_path: Path,
+        bbox: BoundingBox
+    ) -> Dict[str, Any]:
+        """
+        Perform detailed analysis of satellite imagery with AI vision model
+        Extracts precise road widths, building boundaries, surface types
+        
+        Args:
+            image_path: Path to satellite image
+            bbox: Geographic bounding box
+            
+        Returns:
+            Detailed analysis dictionary
+        """
+        vision_prompt = """
+Analyze this satellite/aerial imagery with maximum detail and precision.
+
+ROAD ANALYSIS (critical for accurate generation):
+1. For EACH visible road, estimate:
+   - Exact width in meters (measure from imagery)
+   - Number of lanes (count visible lane markings)
+   - Lane markings type (solid, dashed, double, none)
+   - Road surface type (asphalt, concrete, gravel, dirt)
+   - Road condition (excellent, good, fair, poor)
+   - Shoulder width if visible
+2. Road network density (0.0-1.0)
+3. Dominant road types (highway, arterial, residential, service)
+
+BUILDING ANALYSIS (for precise placement):
+1. For buildings, identify:
+   - Exact footprint boundaries (describe relative positions)
+   - Building height estimate from shadows (meters)
+   - Roof type (flat, pitched, complex)
+   - Building material appearance (concrete, brick, metal, wood)
+   - Building spacing and orientation
+2. Building density by area (0.0-1.0)
+3. Building types distribution (residential, commercial, industrial)
+
+SURFACE & TERRAIN:
+1. Surface types:
+   - Paved areas (roads, parking lots, plazas)
+   - Vegetated areas (grass, trees, forest)
+   - Water bodies (rivers, lakes, ponds)
+   - Bare ground/soil
+2. Terrain characteristics:
+   - Elevation variation (flat, rolling, hilly, mountainous)
+   - Slope steepness estimation
+   - Natural features (valleys, ridges)
+
+INFRASTRUCTURE:
+1. Parking lots: location, size, striping pattern
+2. Intersections: type (4-way, T, roundabout), traffic control visible
+3. Sidewalks and pedestrian paths
+4. Visible landmarks or significant structures
+
+Return detailed JSON format.
+"""
+        
+        try:
+            logger.info(f"Starting detailed AI vision analysis: {image_path}")
+            response = await self.ollama.generate(
+                model=self.ollama.vision_model,
+                prompt=vision_prompt,
+                images=[str(image_path)],
+                format="json"
+            )
+            
+            import json
+            detailed_analysis = json.loads(response)
+            logger.info("Detailed vision analysis complete")
+            return detailed_analysis
+            
+        except Exception as e:
+            logger.error(f"Detailed vision analysis failed: {e}")
+            return {}
+    
     async def analyze_satellite_image(
         self, 
         image_path: Path,
@@ -172,8 +250,6 @@ CONFIDENCE: [0.0-1.0]
             terrain_type = TerrainType.SUBURBAN
         elif vegetation_density > 0.6:
             terrain_type = TerrainType.FOREST
-        elif road_density > 0.5:
-            terrain_type = TerrainType.RURAL
         else:
             terrain_type = TerrainType.MIXED
         
