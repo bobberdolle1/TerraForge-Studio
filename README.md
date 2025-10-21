@@ -205,7 +205,7 @@ MAX_WORKERS=4
 
 ### 🤝 Contributing
 
-Contributions are welcome! Please check [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Contributions are welcome! Please check [CONTRIBUTING.md](docs/CONTRIBUTING.md) for guidelines.
 
 ### 📄 License
 
@@ -421,7 +421,7 @@ MAX_WORKERS=4
 
 ### 🤝 Участие в разработке
 
-Мы приветствуем вклад сообщества! Пожалуйста, ознакомьтесь с [CONTRIBUTING.md](CONTRIBUTING.md).
+Мы приветствуем вклад сообщества! Пожалуйста, ознакомьтесь с [CONTRIBUTING.md](docs/CONTRIBUTING.md).
 
 ### 📄 Лицензия
 
@@ -443,7 +443,7 @@ MAX_WORKERS=4
 ⭐ **If you like this project, give it a star on GitHub!** ⭐
 
 [🌟 Star on GitHub](https://github.com/bobberdolle1/RealWorldMapGen-BNG) | 
-[📖 Documentation](https://github.com/bobberdolle1/RealWorldMapGen-BNG/wiki) | 
+[📖 Documentation](docs/) | 
 [🐛 Report Bug](https://github.com/bobberdolle1/RealWorldMapGen-BNG/issues) | 
 [💡 Request Feature](https://github.com/bobberdolle1/RealWorldMapGen-BNG/issues)
 
