@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RealWorldMapGen-BNG - Map Generator</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🗺️ RealWorldMapGen-BNG</h1>
+            <p>AI-powered real-world map generator for BeamNG.drive</p>
+        </header>
+
+        <div class="main-content">
+            <div class="map-container">
+                <div id="map"></div>
+                <div class="map-instructions">
+                    <p>📍 Click and drag to select an area on the map</p>
+                    <p>Use the rectangle tool to define your map boundaries</p>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <h2>Map Configuration</h2>
+                
+                <div class="form-group">
+                    <label for="mapName">Map Name:</label>
+                    <input type="text" id="mapName" placeholder="my_awesome_map" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="resolution">Heightmap Resolution:</label>
+                    <select id="resolution">
+                        <option value="1024">1024x1024</option>
+                        <option value="2048" selected>2048x2048 (Recommended)</option>
+                        <option value="4096">4096x4096 (High Quality)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="enableAI" checked>
+                        Enable AI Terrain Analysis
+                    </label>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="enableRoads" checked>
+                        Generate Roads
+                    </label>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="enableTrafficLights" checked>
+                        Generate Traffic Lights
+                    </label>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="enableParking" checked>
+                        Generate Parking Lots
+                    </label>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="enableBuildings" checked>
+                        Generate Buildings
+                    </label>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="enableVegetation" checked>
+                        Generate Vegetation
+                    </label>
+                </div>
+
+                <div class="bbox-info" id="bboxInfo">
+                    <p><strong>Selected Area:</strong></p>
+                    <p id="bboxCoords">No area selected</p>
+                    <p id="bboxArea"></p>
+                </div>
+
+                <button id="generateBtn" class="btn-generate" disabled>
+                    Generate Map
+                </button>
+
+                <div id="status" class="status-panel" style="display: none;">
+                    <h3>Generation Status</h3>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <p id="statusText">Initializing...</p>
+                    <p id="statusStep"></p>
+                </div>
+
+                <div id="result" class="result-panel" style="display: none;">
+                    <h3>✅ Map Generated Successfully!</h3>
+                    <p id="resultMessage"></p>
+                    <div class="download-links" id="downloadLinks"></div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <div class="system-status" id="systemStatus">
+                <p>System Status: <span id="healthStatus">Checking...</span></p>
+                <p>Ollama: <span id="ollamaStatus">Checking...</span></p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+    
+    <!-- Custom JS -->
+    <script src="app.js"></script>
+</body>
+</html>
