@@ -241,12 +241,35 @@ async def download_map_file(map_name: str, file_type: str):
     
     Args:
         map_name: Name of the map
-        file_type: Type of file (heightmap, roads, objects, traffic, metadata)
+        file_type: Type of file (heightmap, roads, objects, traffic, metadata, level, zip)
     """
     map_dir = settings.output_dir / map_name
     
     if not map_dir.exists():
         raise HTTPException(status_code=404, detail="Map not found")
+    
+    # Handle zip download
+    if file_type == "zip":
+        from ..packaging import BeamNGPackager
+        
+        packager = BeamNGPackager()
+        
+        # Check if zip already exists
+        zip_path = settings.output_dir / f"{map_name}.zip"
+        
+        if not zip_path.exists():
+            # Create zip package
+            zip_path = packager.create_mod_package(
+                map_dir,
+                map_name,
+                settings.output_dir
+            )
+        
+        return FileResponse(
+            zip_path,
+            media_type="application/zip",
+            filename=zip_path.name
+        )
     
     file_map = {
         "heightmap": f"{map_name}_heightmap.png",
@@ -270,6 +293,43 @@ async def download_map_file(map_name: str, file_type: str):
         media_type="application/octet-stream",
         filename=file_path.name
     )
+
+
+@app.post("/api/batch/generate")
+async def batch_generate(requests: List[MapGenerationRequest]):
+    """
+    Generate multiple maps in batch
+    
+    Args:
+        requests: List of map generation requests
+        
+    Returns:
+        List of task IDs for tracking progress
+    """
+    logger.info(f"Starting batch generation of {len(requests)} maps")
+    
+    task_ids = []
+    
+    for request in requests:
+        try:
+            status = await generator.generate_map(request)
+            task_ids.append({
+                "name": request.name,
+                "task_id": status.task_id,
+                "status": status.status
+            })
+        except Exception as e:
+            logger.error(f"Failed to start generation for {request.name}: {e}")
+            task_ids.append({
+                "name": request.name,
+                "error": str(e)
+            })
+    
+    return {
+        "batch_id": str(uuid.uuid4()),
+        "total": len(requests),
+        "tasks": task_ids
+    }
 
 
 @app.post("/api/test/generate")

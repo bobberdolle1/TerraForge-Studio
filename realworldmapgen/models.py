@@ -119,10 +119,19 @@ class Building(BaseModel):
 
 
 class VegetationArea(BaseModel):
-    """Vegetation/forest area"""
+    """Vegetation area"""
     geometry: List[Tuple[float, float]]  # Polygon points
-    vegetation_type: str = "tree"  # tree, grass, bush
-    density: float = 0.5  # 0.0 to 1.0
+    vegetation_type: str  # tree, grass, bush
+    density: float = 0.5
+
+
+class TrafficRoute(BaseModel):
+    """AI-optimized traffic route"""
+    waypoints: List[Tuple[float, float]]
+    route_type: str = "primary"  # primary, secondary, local
+    total_distance: float = 0.0  # in meters
+    avg_speed: float = 50.0  # km/h
+    priority: float = 1.0  # 0.0-1.0
 
 
 class MapData(BaseModel):
