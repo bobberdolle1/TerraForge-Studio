@@ -5,7 +5,7 @@ description = "AI-powered real-world map generator for BeamNG.drive with automat
 authors = ["Your Name <your.email@example.com>"]
 readme = "README.md"
 license = "MIT"
-python = "^3.13"
+packages = [{include = "realworldmapgen"}]
 
 [tool.poetry.dependencies]
 python = "^3.13"

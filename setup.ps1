@@ -45,29 +45,27 @@ docker-compose up -d
 
 Write-Host ""
 Write-Host "⏳ Waiting for services to be ready..." -ForegroundColor Yellow
-Start-Sleep -Seconds 10
+Start-Sleep -Seconds 5
 
-# Check if Ollama is running
-Write-Host "🔍 Checking Ollama status..." -ForegroundColor Yellow
-try {
-    $response = Invoke-WebRequest -Uri "http://localhost:11434/api/tags" -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
-    Write-Host "✓ Ollama is running" -ForegroundColor Green
-} catch {
-    Write-Host "⚠️  Ollama is not responding yet. It may still be starting up." -ForegroundColor Yellow
+# Check if Ollama is installed locally
+Write-Host "🔍 Checking for local Ollama installation..." -ForegroundColor Yellow
+$ollamaInstalled = Get-Command ollama -ErrorAction SilentlyContinue
+
+if (-not $ollamaInstalled) {
+    Write-Host "⚠️  Ollama is not installed locally" -ForegroundColor Yellow
+    Write-Host "   Download and install from: https://ollama.ai" -ForegroundColor Cyan
+    Write-Host "   Cloud models (qwen3-vl:235b-cloud, qwen3-coder:480b-cloud) will be used automatically" -ForegroundColor White
+} else {
+    Write-Host "✓ Ollama is installed" -ForegroundColor Green
+    
+    # Check if Ollama is running
+    try {
+        $response = Invoke-WebRequest -Uri "http://localhost:11434/api/tags" -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop
+        Write-Host "✓ Ollama service is running" -ForegroundColor Green
+    } catch {
+        Write-Host "⚠️  Ollama is not running. Start it with: ollama serve" -ForegroundColor Yellow
+    }
 }
-
-Write-Host ""
-Write-Host "📥 Pulling required AI models (this may take a while)..." -ForegroundColor Cyan
-Write-Host "   Note: Total download size is ~50GB+" -ForegroundColor Yellow
-Write-Host ""
-
-# Pull Qwen3-VL model
-Write-Host "Pulling qwen3-vl:235b-cloud..." -ForegroundColor Yellow
-docker exec realworldmapgen-ollama ollama pull qwen3-vl:235b-cloud
-
-# Pull Qwen3-Coder model
-Write-Host "Pulling qwen3-coder:480b-cloud..." -ForegroundColor Yellow
-docker exec realworldmapgen-ollama ollama pull qwen3-coder:480b-cloud
 
 Write-Host ""
 Write-Host "✅ Setup complete!" -ForegroundColor Green

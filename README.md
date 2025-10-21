@@ -50,7 +50,8 @@ RealWorldMapGen-BNG/
 
 ### Prerequisites
 
-- **Docker & Docker Compose** (recommended)
+- **Docker & Docker Compose** (for backend and frontend)
+- **Ollama** (installed locally - download from https://ollama.ai)
 - **Python 3.13+** (for local development)
 - **Poetry** (for dependency management)
 - **Git**
@@ -69,15 +70,13 @@ RealWorldMapGen-BNG/
    ```
 
    This will start:
-   - Ollama server (port 11434)
    - Python backend (port 8000)
    - Frontend web interface (port 8080)
 
-3. **Pull required AI models** (first time only):
-   ```bash
-   docker exec -it realworldmapgen-ollama ollama pull qwen3-vl:235b-cloud
-   docker exec -it realworldmapgen-ollama ollama pull qwen3-coder:480b-cloud
-   ```
+3. **Install and start Ollama locally** (first time only):
+   - Download from https://ollama.ai
+   - Install and run: `ollama serve`
+   - Cloud models (qwen3-vl:235b-cloud, qwen3-coder:480b-cloud) are used automatically via API
 
 4. **Access the web interface**:
    Open your browser and navigate to: `http://localhost:8080`
@@ -100,12 +99,11 @@ RealWorldMapGen-BNG/
    # Edit .env with your configuration
    ```
 
-4. **Install and start Ollama** (separate terminal):
+4. **Install and start Ollama**:
    ```bash
    # Download from https://ollama.ai
    ollama serve
-   ollama pull qwen3-vl:235b-cloud
-   ollama pull qwen3-coder:480b-cloud
+   # Cloud models are accessed automatically via API
    ```
 
 5. **Run the backend**:
