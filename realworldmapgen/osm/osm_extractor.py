@@ -28,13 +28,15 @@ class OSMExtractor:
         ox.settings.timeout = settings.osm_timeout
         ox.settings.log_console = False
         
-        # Increase max query area size to avoid splitting into too many sub-queries
-        # Default is 50000000 (~0.05 km² in projection), increase to 50000000000 (50000 km²)
-        # This is the projected area in square meters, not geographic area
-        ox.settings.max_query_area_size = 50000000000
+        # DISABLE subdivision completely by setting extremely large max_query_area_size
+        # osmnx uses projected area which can be 10000x larger than geographic area
+        ox.settings.max_query_area_size = 999999999999  # 999 billion m² = 999,999 km²
         
-        # Set reasonable defaults for download
-        ox.settings.requests_timeout = 60  # 60 seconds per request
+        # Increase timeouts for larger queries
+        ox.settings.requests_timeout = 180  # 3 minutes per request
+        ox.settings.timeout = 300  # 5 minutes total
+        
+        # Overpass API settings
         ox.settings.memory = None  # Use default Overpass memory
         ox.settings.all_oneway = False
         
@@ -92,12 +94,15 @@ class OSMExtractor:
     def extract_roads(self, bbox: BoundingBox) -> List[RoadSegment]:
         """Extract road network from OSM"""
         try:
-            # Get road network using bbox tuple (north, south, east, west)
+            # Use graph_from_bbox with smaller network_type to reduce query size
+            logger.info(f"Requesting road network from Overpass API...")
             G = ox.graph.graph_from_bbox(
                 bbox=(bbox.north, bbox.south, bbox.east, bbox.west),
-                network_type='all',
-                simplify=True
+                network_type='drive',  # Only drivable roads, not 'all'
+                simplify=True,
+                truncate_by_edge=True
             )
+            logger.info(f"Received {len(G.edges)} edges from Overpass API")
             
             roads = []
             for u, v, data in G.edges(data=True):
