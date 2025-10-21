@@ -237,30 +237,38 @@ function simulateProgress(mapName) {
 function showResult(mapName) {
     document.getElementById('status').style.display = 'none';
     document.getElementById('result').style.display = 'block';
-    document.getElementById('resultMessage').textContent = 
-        `Map "${mapName}" has been generated successfully!`;
-
-    // Create download links
-    const downloadLinks = document.getElementById('downloadLinks');
-    downloadLinks.innerHTML = `
-        <a href="${API_BASE_URL}/api/maps/${mapName}/download/heightmap" download>
-            📊 Download Heightmap
-        </a>
-        <a href="${API_BASE_URL}/api/maps/${mapName}/download/roads" download>
-            🛣️ Download Roads Data
-        </a>
-        <a href="${API_BASE_URL}/api/maps/${mapName}/download/objects" download>
-            🏢 Download Objects Data
-        </a>
-        <a href="${API_BASE_URL}/api/maps/${mapName}/download/traffic" download>
-            🚦 Download Traffic Data
-        </a>
-        <a href="${API_BASE_URL}/api/maps/${mapName}/download/metadata" download>
-            📋 Download Metadata
-        </a>
-        <a href="${API_BASE_URL}/api/maps/${mapName}/download/level" download>
-            🎮 Download Level JSON
-        </a>
+    document.getElementById('resultMessage').innerHTML = `
+        <div class="alert alert-success">
+            <h4>✓ Generation Complete!</h4>
+            <p>Map "${mapName}" has been generated successfully!</p>
+            
+            <h5 style="margin-top: 20px;">📦 Ready to Install</h5>
+            <div class="download-buttons" style="margin-bottom: 20px;">
+                <a href="${API_BASE_URL}/api/maps/${mapName}/download/zip" 
+                   class="btn btn-success btn-lg" download>
+                    <strong>⬇ Download BeamNG.drive Mod (.zip)</strong>
+                </a>
+                <p style="margin-top: 10px; color: #666; font-size: 0.9em;">
+                    Extract this file to your BeamNG.drive/mods/ folder
+                </p>
+            </div>
+            
+            <h5>📄 Individual Files</h5>
+            <div class="download-buttons">
+                <a href="${API_BASE_URL}/api/maps/${mapName}/download/heightmap" 
+                   class="btn btn-primary btn-sm" download>Heightmap</a>
+                <a href="${API_BASE_URL}/api/maps/${mapName}/download/roads" 
+                   class="btn btn-primary btn-sm" download>Roads</a>
+                <a href="${API_BASE_URL}/api/maps/${mapName}/download/objects" 
+                   class="btn btn-primary btn-sm" download>Objects</a>
+                <a href="${API_BASE_URL}/api/maps/${mapName}/download/traffic" 
+                   class="btn btn-primary btn-sm" download>Traffic</a>
+                <a href="${API_BASE_URL}/api/maps/${mapName}/download/level" 
+                   class="btn btn-primary btn-sm" download>Level</a>
+                <a href="${API_BASE_URL}/api/maps/${mapName}/download/metadata" 
+                   class="btn btn-primary btn-sm" download>Info</a>
+            </div>
+        </div>
     `;
 
     // Re-enable generate button

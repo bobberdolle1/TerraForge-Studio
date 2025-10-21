@@ -236,15 +236,17 @@ header p {
     margin-top: 15px;
 }
 
-.download-links a {
-    display: block;
-    padding: 10px 15px;
-    background: #667eea;
-    color: white;
+.download-buttons {
+    margin-top: 15px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.download-buttons a {
     text-decoration: none;
-    border-radius: 8px;
-    text-align: center;
-    transition: all 0.3s;
+    transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .download-links a:hover {
