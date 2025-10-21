@@ -37,18 +37,21 @@ class MapGenerator:
     
     async def generate_map(
         self,
-        request: MapGenerationRequest
+        request: MapGenerationRequest,
+        task_id: Optional[str] = None
     ) -> GenerationStatus:
         """
         Generate a complete map from the request
         
         Args:
             request: Map generation request
+            task_id: Optional task ID (will be generated if not provided)
             
         Returns:
             Generation status with result
         """
-        task_id = str(uuid.uuid4())
+        if task_id is None:
+            task_id = str(uuid.uuid4())
         
         status = GenerationStatus(
             task_id=task_id,

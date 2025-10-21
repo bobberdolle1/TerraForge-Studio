@@ -300,6 +300,9 @@ async function checkHealth() {
     }
 }
 
+// Store current map name globally
+let currentMapName = null;
+
 // Generate map
 async function generateMap() {
     if (!selectedBounds) {
@@ -318,6 +321,9 @@ async function generateMap() {
         alert('Map name can only contain letters, numbers, underscores, and hyphens');
         return;
     }
+
+    // Store map name for later use
+    currentMapName = mapName;
 
     const resolution = parseInt(document.getElementById('resolution').value);
     const exportEngine = document.getElementById('exportEngine').value;
@@ -356,12 +362,14 @@ async function generateMap() {
             alert('Error: ' + (data.detail || 'Failed to start generation'));
             generateBtn.disabled = false;
             generateBtn.textContent = '🚀 Generate Map';
+            currentMapName = null;
         }
     } catch (error) {
         console.error('Generation failed:', error);
         alert('Failed to connect to server');
         generateBtn.disabled = false;
         generateBtn.textContent = '🚀 Generate Map';
+        currentMapName = null;
     }
 }
 
@@ -417,16 +425,25 @@ function updateProgressDisplay(status) {
 
 // Show result
 function showResult(mapName) {
+    // Use stored map name if parameter is not provided
+    const actualMapName = mapName || currentMapName;
+    
+    if (!actualMapName) {
+        console.error('No map name available');
+        showError('Map name is missing');
+        return;
+    }
+    
     document.getElementById('status').style.display = 'none';
     document.getElementById('result').style.display = 'block';
     document.getElementById('resultMessage').innerHTML = `
         <div class="alert alert-success">
             <h4>✓ Generation Complete!</h4>
-            <p>Map "${mapName}" has been generated successfully!</p>
+            <p>Map "${actualMapName}" has been generated successfully!</p>
             
             <h5 style="margin-top: 20px;">📦 Ready to Install</h5>
             <div class="download-buttons" style="margin-bottom: 20px;">
-                <a href="${API_BASE_URL}/api/maps/${mapName}/download/zip" 
+                <a href="${API_BASE_URL}/api/maps/${actualMapName}/download/zip" 
                    class="btn btn-success btn-lg" download>
                     <strong>⬇ Download BeamNG.drive Mod (.zip)</strong>
                 </a>
@@ -437,17 +454,17 @@ function showResult(mapName) {
             
             <h5>📄 Individual Files</h5>
             <div class="download-buttons">
-                <a href="${API_BASE_URL}/api/maps/${mapName}/download/heightmap" 
+                <a href="${API_BASE_URL}/api/maps/${actualMapName}/download/heightmap" 
                    class="btn btn-primary btn-sm" download>Heightmap</a>
-                <a href="${API_BASE_URL}/api/maps/${mapName}/download/roads" 
+                <a href="${API_BASE_URL}/api/maps/${actualMapName}/download/roads" 
                    class="btn btn-primary btn-sm" download>Roads</a>
-                <a href="${API_BASE_URL}/api/maps/${mapName}/download/objects" 
+                <a href="${API_BASE_URL}/api/maps/${actualMapName}/download/objects" 
                    class="btn btn-primary btn-sm" download>Objects</a>
-                <a href="${API_BASE_URL}/api/maps/${mapName}/download/traffic" 
+                <a href="${API_BASE_URL}/api/maps/${actualMapName}/download/traffic" 
                    class="btn btn-primary btn-sm" download>Traffic</a>
-                <a href="${API_BASE_URL}/api/maps/${mapName}/download/level" 
+                <a href="${API_BASE_URL}/api/maps/${actualMapName}/download/level" 
                    class="btn btn-primary btn-sm" download>Level</a>
-                <a href="${API_BASE_URL}/api/maps/${mapName}/download/metadata" 
+                <a href="${API_BASE_URL}/api/maps/${actualMapName}/download/metadata" 
                    class="btn btn-primary btn-sm" download>Info</a>
             </div>
         </div>

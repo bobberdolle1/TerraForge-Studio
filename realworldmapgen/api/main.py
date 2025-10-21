@@ -3,6 +3,7 @@ FastAPI application for RealWorldMapGen-BNG
 """
 
 import logging
+import uuid
 from typing import Dict, Any, List, Optional
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -124,18 +125,20 @@ async def generate_map(
             detail="Invalid bounding box"
         )
     
-    # Start generation in background
+    # Start generation and get task_id
+    task_id = str(uuid.uuid4())
+    
     async def run_generation():
         try:
-            await generator.generate_map(request)
+            await generator.generate_map(request, task_id)
         except Exception as e:
             logger.error(f"Background generation failed: {e}")
     
     background_tasks.add_task(run_generation)
     
-    # Return initial status
+    # Return initial status with actual task_id
     return GenerationStatus(
-        task_id="pending",
+        task_id=task_id,
         status="pending",
         progress=0.0,
         current_step="Queued for processing",
