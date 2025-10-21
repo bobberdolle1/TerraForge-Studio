@@ -377,8 +377,18 @@ function showProgress(taskId, mapName) {
     const pollInterval = setInterval(async () => {
         try {
             const response = await fetch(`${API_BASE_URL}/api/tasks/${taskId}`);
+            
+            if (!response.ok) {
+                // Task might be completed already
+                if (response.status === 404) {
+                    clearInterval(pollInterval);
+                    showResult(mapName);
+                    return;
+                }
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
             const status = await response.json();
-
             updateProgressDisplay(status);
 
             if (status.status === 'completed') {

@@ -62,12 +62,9 @@ class OSMExtractor:
     def extract_roads(self, bbox: BoundingBox) -> List[RoadSegment]:
         """Extract road network from OSM"""
         try:
-            # Get road network using new API
+            # Get road network using bbox tuple (north, south, east, west)
             G = ox.graph.graph_from_bbox(
-                north=bbox.north,
-                south=bbox.south,
-                east=bbox.east,
-                west=bbox.west,
+                bbox=(bbox.north, bbox.south, bbox.east, bbox.west),
                 network_type='all',
                 simplify=True
             )
@@ -131,10 +128,7 @@ class OSMExtractor:
         """Extract buildings from OSM"""
         try:
             buildings_gdf = ox.features.features_from_bbox(
-                north=bbox.north,
-                south=bbox.south,
-                east=bbox.east,
-                west=bbox.west,
+                bbox=(bbox.north, bbox.south, bbox.east, bbox.west),
                 tags={'building': True}
             )
             
@@ -189,10 +183,7 @@ class OSMExtractor:
         """Extract traffic lights from OSM"""
         try:
             traffic_gdf = ox.features.features_from_bbox(
-                north=bbox.north,
-                south=bbox.south,
-                east=bbox.east,
-                west=bbox.west,
+                bbox=(bbox.north, bbox.south, bbox.east, bbox.west),
                 tags={'highway': 'traffic_signals'}
             )
             
@@ -214,13 +205,10 @@ class OSMExtractor:
             return []
     
     def extract_parking(self, bbox: BoundingBox) -> List[ParkingLot]:
-        """Extract parking areas from OSM"""
+        """Extract parking lots from OSM"""
         try:
             parking_gdf = ox.features.features_from_bbox(
-                north=bbox.north,
-                south=bbox.south,
-                east=bbox.east,
-                west=bbox.west,
+                bbox=(bbox.north, bbox.south, bbox.east, bbox.west),
                 tags={'amenity': 'parking'}
             )
             
@@ -263,10 +251,7 @@ class OSMExtractor:
         try:
             # Extract forests and parks
             vegetation_gdf = ox.features.features_from_bbox(
-                north=bbox.north,
-                south=bbox.south,
-                east=bbox.east,
-                west=bbox.west,
+                bbox=(bbox.north, bbox.south, bbox.east, bbox.west),
                 tags={'natural': ['wood', 'tree', 'tree_row'], 
                       'landuse': ['forest', 'grass', 'meadow']}
             )
