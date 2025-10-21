@@ -233,6 +233,7 @@ function updateBoundsFromLayer(layer) {
 // Update area info display
 function updateAreaInfo() {
     const areaInfo = document.getElementById('areaInfo');
+    const generateBtn = document.getElementById('generateBtn');
     
     if (selectedBounds) {
         const area = calculateAreaKm2(selectedBounds);
@@ -244,8 +245,18 @@ function updateAreaInfo() {
             `Area: ${area.toFixed(2)} km²`;
         
         areaInfo.style.display = 'block';
+        
+        // Enable generate button
+        generateBtn.disabled = false;
+        generateBtn.style.opacity = '1';
+        generateBtn.style.cursor = 'pointer';
     } else {
         areaInfo.style.display = 'none';
+        
+        // Disable generate button
+        generateBtn.disabled = true;
+        generateBtn.style.opacity = '0.6';
+        generateBtn.style.cursor = 'not-allowed';
     }
 }
 
