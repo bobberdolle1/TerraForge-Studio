@@ -22,7 +22,7 @@ interface QueueManagerProps {
   onRefresh?: () => void;
 }
 
-const QueueManager: React.FC<QueueManagerProps> = ({ onRefresh }) => {
+const QueueManager: React.FC<QueueManagerProps> = ({ onRefresh: _onRefresh }) => {
   const [jobs, setJobs] = useState<BatchJob[]>([]);
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState({
@@ -112,7 +112,7 @@ const QueueManager: React.FC<QueueManagerProps> = ({ onRefresh }) => {
     }
   };
 
-  const downloadResult = async (jobId: string, jobName: string) => {
+  const downloadResult = async (jobId: string, _jobName: string) => {
     try {
       const response = await fetch(`/api/batch/downloads/${jobId}`);
       const data = await response.json();

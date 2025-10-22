@@ -9,8 +9,23 @@ export interface BoundingBox {
   west: number;
 }
 
-export type ExportFormat = 'unreal5' | 'unity' | 'gltf' | 'geotiff' | 'obj' | 'all';
-export type ElevationSource = 'srtm' | 'opentopography' | 'sentinelhub' | 'azure_maps' | 'auto';
+// Helper function for BoundingBox
+export function calculateArea(bbox: BoundingBox): number {
+  // Approximate area in km² (simplified calculation)
+  const latDiff = Math.abs(bbox.north - bbox.south);
+  const lonDiff = Math.abs(bbox.east - bbox.west);
+  const avgLat = (bbox.north + bbox.south) / 2;
+  
+  // 1 degree latitude ≈ 111 km
+  // 1 degree longitude ≈ 111 km * cos(latitude)
+  const kmLat = latDiff * 111;
+  const kmLon = lonDiff * 111 * Math.cos(avgLat * Math.PI / 180);
+  
+  return kmLat * kmLon;
+}
+
+export type ExportFormat = 'unreal5' | 'unity' | 'gltf' | 'geotiff' | 'obj' | 'all' | 'ue5' | 'raw16' | 'kml';
+export type ElevationSource = 'srtm' | 'opentopography' | 'sentinelhub' | 'azure_maps' | 'auto' | 'sentinel';
 
 export interface TerrainGenerationRequest {
   bbox: BoundingBox;
@@ -34,6 +49,8 @@ export interface GenerationStatus {
   current_step: string;
   message?: string;
   error?: string;
+  download_url?: string;
+  thumbnail_base64?: string;
   result?: {
     terrain_name: string;
     resolution: number;
@@ -44,6 +61,8 @@ export interface GenerationStatus {
     };
     exports: Record<string, any>;
     output_directory: string;
+    thumbnail?: string;
+    thumbnail_base64?: string;
   };
 }
 

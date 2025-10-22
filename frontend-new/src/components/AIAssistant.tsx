@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import { Brain, Sparkles, AlertCircle, CheckCircle, Loader } from 'lucide-react';
 import type { BoundingBox } from '@/types';
+import { calculateArea } from '@/types';
 
 interface TerrainAnalysis {
   terrain_type: string;
@@ -66,7 +67,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ bbox, onApplyRecommendations 
             max: 500,
             slope_avg: 10,
             slope_max: 45,
-            area_km2: bbox.area_km2 || 25,
+            area_km2: calculateArea(bbox),
           },
         }),
       });

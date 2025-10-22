@@ -36,9 +36,9 @@ const MapSelector: React.FC<MapSelectorProps> = ({ selectedBbox, onBboxChange })
           edit: false,
         },
         draw: {
-          polygon: true,
+          polygon: {},
           polyline: false,
-          rectangle: true,
+          rectangle: {},
           circle: false,
           marker: false,
           circlemarker: false,

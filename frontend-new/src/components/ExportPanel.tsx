@@ -3,8 +3,11 @@
  */
 
 import { useState } from 'react';
-import { Rocket } from 'lucide-react';
+import { Rocket, Sparkles } from 'lucide-react';
+import PresetSelector from './PresetSelector';
 import type { ExportFormat, ElevationSource } from '@/types';
+import type { TerrainPreset } from '../types/presets';
+import { notify } from '../utils/toast';
 
 interface ExportPanelProps {
   onGenerate: (config: {
@@ -27,10 +30,11 @@ const ExportPanel: React.FC<ExportPanelProps> = ({ onGenerate, disabled }) => {
   const [enableRoads, setEnableRoads] = useState(true);
   const [enableBuildings, setEnableBuildings] = useState(true);
   const [enableWeightmaps, setEnableWeightmaps] = useState(true);
+  const [showPresets, setShowPresets] = useState(false);
 
   const handleGenerate = () => {
     if (!name.trim()) {
-      alert('Please enter a terrain name');
+      notify.error('Please enter a terrain name');
       return;
     }
 
@@ -45,6 +49,18 @@ const ExportPanel: React.FC<ExportPanelProps> = ({ onGenerate, disabled }) => {
     });
   };
 
+  const handleApplyPreset = (preset: TerrainPreset) => {
+    setName(preset.name.toLowerCase().replace(/\s+/g, '_'));
+    setResolution(preset.config.resolution);
+    setExportFormats(preset.config.exportFormats);
+    setElevationSource(preset.config.elevationSource);
+    setEnableRoads(preset.config.enableRoads);
+    setEnableBuildings(preset.config.enableBuildings);
+    setEnableWeightmaps(preset.config.enableWeightmaps);
+    setShowPresets(false);
+    notify.success(`Applied preset: ${preset.name}`);
+  };
+
   const toggleFormat = (format: ExportFormat) => {
     setExportFormats(prev =>
       prev.includes(format)
@@ -55,6 +71,23 @@ const ExportPanel: React.FC<ExportPanelProps> = ({ onGenerate, disabled }) => {
 
   return (
     <div className="space-y-4">
+      {/* Preset Selector Modal */}
+      {showPresets && (
+        <PresetSelector
+          onSelectPreset={handleApplyPreset}
+          onClose={() => setShowPresets(false)}
+        />
+      )}
+
+      {/* Load Preset Button */}
+      <button
+        onClick={() => setShowPresets(true)}
+        className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-3 rounded-md hover:from-purple-700 hover:to-indigo-700 transition"
+      >
+        <Sparkles className="w-5 h-5" />
+        <span>Load Preset Template</span>
+      </button>
+
       {/* Terrain Name */}
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

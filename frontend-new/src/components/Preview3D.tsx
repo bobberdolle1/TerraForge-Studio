@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Camera, Home, ZoomIn, ZoomOut, RotateCcw, Download } from 'lucide-react';
 import type { BoundingBox } from '@/types';
+import { calculateArea } from '@/types';
 
 interface Preview3DProps {
   bbox: BoundingBox | null;
@@ -15,7 +16,7 @@ interface Preview3DProps {
   };
 }
 
-const Preview3D: React.FC<Preview3DProps> = ({ bbox, terrainData }) => {
+const Preview3D: React.FC<Preview3DProps> = ({ bbox, terrainData: _terrainData }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<any>(null);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -36,7 +37,6 @@ const Preview3D: React.FC<Preview3DProps> = ({ bbox, terrainData }) => {
         // Create viewer
         const viewer = new Cesium.Viewer(containerRef.current, {
           terrainProvider: await Cesium.createWorldTerrainAsync(),
-          imageryProvider: new Cesium.IonImageryProvider({ assetId: 2 }),
           baseLayerPicker: false,
           geocoder: false,
           homeButton: false,
@@ -115,20 +115,16 @@ const Preview3D: React.FC<Preview3DProps> = ({ bbox, terrainData }) => {
 
   const handleZoomIn = () => {
     if (!viewerRef.current) return;
-    import('cesium').then(Cesium => {
-      const camera = viewerRef.current.camera;
-      const moveRate = camera.positionCartographic.height / 10;
-      camera.moveForward(moveRate);
-    });
+    const camera = viewerRef.current.camera;
+    const moveRate = camera.positionCartographic.height / 10;
+    camera.moveForward(moveRate);
   };
 
   const handleZoomOut = () => {
     if (!viewerRef.current) return;
-    import('cesium').then(Cesium => {
-      const camera = viewerRef.current.camera;
-      const moveRate = camera.positionCartographic.height / 10;
-      camera.moveBackward(moveRate);
-    });
+    const camera = viewerRef.current.camera;
+    const moveRate = camera.positionCartographic.height / 10;
+    camera.moveBackward(moveRate);
   };
 
   const handleResetView = () => {
@@ -140,9 +136,7 @@ const Preview3D: React.FC<Preview3DProps> = ({ bbox, terrainData }) => {
 
   const handleHomeView = () => {
     if (!viewerRef.current) return;
-    import('cesium').then(Cesium => {
-      viewerRef.current.camera.flyHome(1.5);
-    });
+    viewerRef.current.camera.flyHome(1.5);
   };
 
   const handleScreenshot = () => {
@@ -261,7 +255,7 @@ const Preview3D: React.FC<Preview3DProps> = ({ bbox, terrainData }) => {
             <p>East: {bbox.east.toFixed(4)}°</p>
             <p>West: {bbox.west.toFixed(4)}°</p>
             <p className="pt-1 border-t border-gray-300 dark:border-gray-600">
-              Area: {bbox.area_km2?.toFixed(2) || 'N/A'} km²
+              Area: {calculateArea(bbox).toFixed(2)} km²
             </p>
           </div>
         </div>

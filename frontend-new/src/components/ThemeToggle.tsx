@@ -3,6 +3,7 @@
  * Provides a UI to switch between Light, Dark, and Auto themes
  */
 
+import { useEffect } from 'react';
 import { Sun, Moon, Monitor } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -14,6 +15,18 @@ const ThemeToggle: React.FC = () => {
     { value: 'dark' as const, icon: Moon, label: 'Dark' },
     { value: 'auto' as const, icon: Monitor, label: 'Auto' },
   ];
+
+  // Listen for keyboard shortcut toggle event
+  useEffect(() => {
+    const handleToggle = () => {
+      const currentIndex = themes.findIndex(t => t.value === theme);
+      const nextIndex = (currentIndex + 1) % themes.length;
+      setTheme(themes[nextIndex].value);
+    };
+
+    window.addEventListener('toggle-theme', handleToggle);
+    return () => window.removeEventListener('toggle-theme', handleToggle);
+  }, [theme, setTheme]);
 
   return (
     <div className="flex items-center bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 p-1">

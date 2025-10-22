@@ -34,6 +34,9 @@ from ..exporters import (
     GLTFExporter,
     GeoTIFFExporter,
 )
+from .cache_manager import get_cache_manager
+from .thumbnail_generator import generate_thumbnail
+from .plugin_system import get_plugin_registry, PluginHookType
 
 logger = logging.getLogger(__name__)
 
@@ -54,11 +57,22 @@ class TerraForgeGenerator:
         # Initialize data sources
         self.sources = self._initialize_sources()
 
+        # Initialize cache manager
+        cache_dir = getattr(settings, 'cache_dir', './cache')
+        self.cache_manager = get_cache_manager(cache_dir)
+
+        # Initialize plugin system
+        self.plugin_registry = get_plugin_registry()
+        plugin_dir = getattr(settings, 'plugin_dir', './plugins')
+        self.plugin_registry.load_from_directory(Path(plugin_dir))
+
         # Task tracking
         self.active_tasks: Dict[str, GenerationStatus] = {}
 
         logger.info("TerraForge Generator initialized")
         logger.info(f"Available sources: {list(self.sources.keys())}")
+        logger.info(f"Cache enabled: {cache_dir}")
+        logger.info(f"Plugins loaded: {len(self.plugin_registry.list_plugins())}")
 
     def _initialize_sources(self) -> Dict[str, Any]:
         """Initialize all available data sources"""
@@ -145,6 +159,42 @@ class TerraForgeGenerator:
             # Convert bbox
             bbox = self._convert_bbox(request.bbox)
 
+            # Check cache first
+            cache_key = self.cache_manager.generate_cache_key(
+                bbox={
+                    "north": request.bbox.north,
+                    "south": request.bbox.south,
+                    "east": request.bbox.east,
+                    "west": request.bbox.west,
+                },
+                config={
+                    "resolution": request.resolution,
+                    "export_formats": [f.value for f in request.export_formats],
+                    "elevation_source": request.elevation_source.value,
+                    "enable_roads": request.enable_roads,
+                    "enable_buildings": request.enable_buildings,
+                    "enable_weightmaps": request.enable_weightmaps,
+                    "enable_vegetation": request.enable_vegetation,
+                    "enable_water_bodies": request.enable_water_bodies,
+                }
+            )
+
+            # Check if result is cached
+            cached_result = self.cache_manager.get_cached_result(cache_key)
+            if cached_result:
+                logger.info(f"Cache hit! Using cached result: {cache_key[:16]}...")
+                status.current_step = "Using cached result"
+                status.progress = 100.0
+                status.status = "completed"
+                status.message = f"Terrain '{request.name}' loaded from cache"
+                
+                # Set download URL to cached result
+                zip_file = settings.output_dir / f"{request.name}.zip"
+                if zip_file.exists():
+                    status.download_url = f"/api/maps/{request.name}/download/zip"
+                
+                return status
+
             # Step 1: Acquire elevation data
             status.current_step = "Acquiring elevation data"
             status.progress = 10.0
@@ -224,6 +274,20 @@ class TerraForgeGenerator:
                 "output_directory": str(output_dir),
             }
 
+            # Generate thumbnail for preview
+            status.current_step = "Generating preview thumbnail"
+            status.progress = 95.0
+            try:
+                thumbnail_path = output_dir / "thumbnail.png"
+                thumbnail_b64 = generate_thumbnail(elevation_data, thumbnail_path, size=(400, 300))
+                if thumbnail_b64:
+                    result["thumbnail"] = str(thumbnail_path)
+                    result["thumbnail_base64"] = thumbnail_b64
+                    logger.info("Thumbnail generated successfully")
+            except Exception as e:
+                logger.warning(f"Failed to generate thumbnail: {e}")
+                # Non-critical, continue
+            
             # Mark complete
             status.status = "completed"
             status.progress = 100.0

@@ -22,7 +22,6 @@ interface BatchProcessorProps {
 
 const BatchProcessor: React.FC<BatchProcessorProps> = ({ onSubmitBatch }) => {
   const [jobs, setJobs] = useState<BatchJobInput[]>([]);
-  const [showAddForm, setShowAddForm] = useState(false);
 
   const addNewJob = () => {
     const newJob: BatchJobInput = {
@@ -34,7 +33,7 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onSubmitBatch }) => {
       elevationSource: 'auto',
     };
     setJobs([...jobs, newJob]);
-    setShowAddForm(false);
+    // setShowAddForm(false); // Commented out - form management to be implemented
   };
 
   const removeJob = (id: string) => {

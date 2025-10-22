@@ -18,6 +18,12 @@ from ..config import settings
 from .settings_routes import router as settings_router
 from .batch_routes import router as batch_router
 from .ai_routes import router as ai_router
+from .websocket_routes import router as websocket_router
+from .cache_routes import router as cache_router
+from .share_routes import router as share_router
+from .plugin_routes import router as plugin_router
+from .auth_routes import router as auth_router
+from .cloud_routes import router as cloud_router
 
 # Configure logging
 logging.basicConfig(
@@ -48,6 +54,12 @@ app.add_middleware(
 app.include_router(settings_router)
 app.include_router(batch_router)
 app.include_router(ai_router)
+app.include_router(websocket_router)
+app.include_router(cache_router)
+app.include_router(share_router)
+app.include_router(plugin_router)
+app.include_router(auth_router)
+app.include_router(cloud_router)
 
 # Global generator instance
 generator = TerraForgeGenerator()
