@@ -116,8 +116,8 @@ async def api_root():
             "formats": "/api/formats",
             "docs": "/docs"
         },
-        "repository": "https://github.com/yourusername/TerraForge-Studio",
-        "documentation": "https://github.com/yourusername/TerraForge-Studio/docs"
+        "repository": "https://github.com/bobberdolle1/TerraForge-Studio",
+        "documentation": "https://github.com/bobberdolle1/TerraForge-Studio/docs"
     }
 
 

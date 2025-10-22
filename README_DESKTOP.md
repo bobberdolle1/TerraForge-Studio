@@ -34,7 +34,7 @@ TerraForge Studio is a professional desktop application for generating 3D terrai
 
 ### Latest Release
 
-Download the latest version from [Releases](https://github.com/yourusername/TerraForge-Studio/releases):
+Download the latest version from [Releases](https://github.com/bobberdolle1/TerraForge-Studio/releases):
 
 ```
 TerraForge-Studio-v1.0.0-Windows-x64.zip  (~250 MB)
@@ -290,7 +290,7 @@ Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for gui
 
 ```powershell
 # 1. Clone repository
-git clone https://github.com/yourusername/TerraForge-Studio.git
+git clone https://github.com/bobberdolle1/TerraForge-Studio.git
 cd TerraForge-Studio
 
 # 2. Install dependencies
@@ -326,8 +326,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- 🐛 **Issues:** [GitHub Issues](https://github.com/yourusername/TerraForge-Studio/issues)
-- 💬 **Discussions:** [GitHub Discussions](https://github.com/yourusername/TerraForge-Studio/discussions)
+- 🐛 **Issues:** [GitHub Issues](https://github.com/bobberdolle1/TerraForge-Studio/issues)
+- 💬 **Discussions:** [GitHub Discussions](https://github.com/bobberdolle1/TerraForge-Studio/discussions)
 - 📧 **Email:** contact@terraforge.dev (placeholder)
 
 ---

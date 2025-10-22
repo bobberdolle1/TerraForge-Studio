@@ -4,7 +4,7 @@
 #define MyAppName "TerraForge Studio"
 #define MyAppVersion "1.0.0"
 #define MyAppPublisher "TerraForge Team"
-#define MyAppURL "https://github.com/yourusername/TerraForge-Studio"
+#define MyAppURL "https://github.com/bobberdolle1/TerraForge-Studio"
 #define MyAppExeName "TerraForge Studio.exe"
 
 [Setup]

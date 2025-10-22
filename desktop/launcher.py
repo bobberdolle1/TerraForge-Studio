@@ -15,6 +15,13 @@ import uvicorn
 from uvicorn.config import Config
 from uvicorn.server import Server
 
+# Configure logging FIRST
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -26,13 +33,6 @@ except ImportError as e:
     logger.error(f"Failed to import application modules: {e}")
     logger.error("Make sure you're running from the correct directory")
     sys.exit(1)
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
 
 
 class DesktopServer:

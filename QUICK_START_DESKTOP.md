@@ -119,6 +119,6 @@ npm run build
 
 - 📖 [Полная документация](DESKTOP_BUILD_GUIDE.md)
 - 🔧 [Desktop README](desktop/README.md)
-- 🐛 [Issues](https://github.com/yourusername/TerraForge-Studio/issues)
+- 🐛 [Issues](https://github.com/bobberdolle1/TerraForge-Studio/issues)
 
 **Готово! Теперь у вас есть профессиональное десктопное приложение! 🎉**
