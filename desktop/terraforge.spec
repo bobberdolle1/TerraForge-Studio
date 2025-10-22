@@ -55,8 +55,8 @@ datas += tmp_ret[0]
 binaries += tmp_ret[1]
 hiddenimports += tmp_ret[2]
 
-# Hidden imports for FastAPI
-hiddenimports = [
+# Hidden imports for FastAPI and app modules
+hiddenimports += [
     'webview',
     'bottle',
     'proxy_tools',
