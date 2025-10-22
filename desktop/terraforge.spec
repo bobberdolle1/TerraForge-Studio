@@ -56,7 +56,14 @@ binaries += tmp_ret[1]
 hiddenimports += tmp_ret[2]
 
 # Hidden imports for FastAPI
-hiddenimports += [
+hiddenimports = [
+    'webview',
+    'bottle',
+    'proxy_tools',
+    'fastapi',
+    'pydantic',
+    'starlette',
+    'uvicorn',
     'uvicorn.logging',
     'uvicorn.loops',
     'uvicorn.loops.auto',
@@ -67,6 +74,12 @@ hiddenimports += [
     'uvicorn.protocols.websockets.auto',
     'uvicorn.lifespan',
     'uvicorn.lifespan.on',
+    'click',
+    'h11',
+    'httptools',
+    'websockets',
+    'watchfiles',
+    'python-multipart',
     'realworldmapgen',
     'realworldmapgen.api',
     'realworldmapgen.api.main',

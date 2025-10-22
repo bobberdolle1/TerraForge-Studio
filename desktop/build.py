@@ -49,9 +49,10 @@ def check_requirements():
     except FileNotFoundError:
         raise BuildError("Node.js not found. Please install Node.js")
     
-    # Check npm
+    # Check npm (use npm.cmd on Windows)
+    npm_cmd = 'npm.cmd' if sys.platform == 'win32' else 'npm'
     try:
-        result = subprocess.run(['npm', '--version'], capture_output=True, text=True)
+        result = subprocess.run([npm_cmd, '--version'], capture_output=True, text=True, shell=True)
         logger.info(f"✓ npm: {result.stdout.strip()}")
     except FileNotFoundError:
         raise BuildError("npm not found. Please install npm")
@@ -69,7 +70,7 @@ def check_requirements():
     # Check pywebview
     try:
         import webview
-        logger.info(f"✓ pywebview: {webview.__version__}")
+        logger.info("✓ pywebview: installed")
     except ImportError:
         raise BuildError("pywebview not found. Run: pip install pywebview")
 
@@ -86,13 +87,15 @@ def build_frontend(base_path):
         raise BuildError(f"Frontend directory not found: {frontend_path}")
     
     # Check if node_modules exists
+    npm_cmd = 'npm.cmd' if sys.platform == 'win32' else 'npm'
     if not (frontend_path / 'node_modules').exists():
         logger.info("Installing npm dependencies...")
-        run_command('npm install', cwd=frontend_path)
+        run_command(f'{npm_cmd} install', cwd=frontend_path)
     
     # Build frontend
+    npm_cmd = 'npm.cmd' if sys.platform == 'win32' else 'npm'
     logger.info("Building frontend...")
-    run_command('npm run build', cwd=frontend_path)
+    run_command(f'{npm_cmd} run build', cwd=frontend_path)
     
     # Check if build succeeded
     dist_path = frontend_path / 'dist'

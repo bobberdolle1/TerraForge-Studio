@@ -54,7 +54,7 @@ export function useAutoSave<T>({
         if (onSuccess) {
           onSuccess();
         } else {
-          notify.success('Auto-saved', { duration: 2000 });
+          notify.success('Auto-saved');
         }
       } catch (error) {
         console.error('Auto-save failed:', error);

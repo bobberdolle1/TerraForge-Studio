@@ -109,9 +109,9 @@ export const PublicProjectsGallery: React.FC = () => {
                 </h3>
                 <div className="flex items-center gap-1">
                   {project.isPublic ? (
-                    <Globe className="w-4 h-4 text-green-500" title="Public" />
+                    <Globe className="w-4 h-4 text-green-500" />
                   ) : (
-                    <Lock className="w-4 h-4 text-gray-400" title="Private" />
+                    <Lock className="w-4 h-4 text-gray-400" />
                   )}
                 </div>
               </div>

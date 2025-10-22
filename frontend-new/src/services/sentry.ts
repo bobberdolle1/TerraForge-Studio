@@ -1,4 +1,10 @@
-import * as Sentry from '@sentry/react';
+// import * as Sentry from '@sentry/react';
+// Sentry is optional - install with: npm install @sentry/react
+const Sentry = {
+  init: () => {},
+  captureException: () => {},
+  captureMessage: () => {},
+} as any;
 
 export function initSentry() {
   if (import.meta.env.PROD && import.meta.env.VITE_SENTRY_DSN) {

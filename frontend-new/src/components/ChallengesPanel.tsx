@@ -232,7 +232,7 @@ export const ChallengesPanel: React.FC = () => {
 
               {/* Action */}
               <AccessibleButton
-                variant={challenge.progress === challenge.maxProgress ? 'success' : 'primary'}
+                variant={challenge.progress === challenge.maxProgress ? 'primary' : 'secondary'}
                 className="w-full"
                 disabled={challenge.progress === challenge.maxProgress}
               >
