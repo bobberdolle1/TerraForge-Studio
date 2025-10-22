@@ -55,6 +55,27 @@ datas += tmp_ret[0]
 binaries += tmp_ret[1]
 hiddenimports += tmp_ret[2]
 
+# Collect uvicorn and all submodules (critical for desktop app)
+tmp_ret = collect_all('uvicorn')
+datas += tmp_ret[0]
+binaries += tmp_ret[1]
+hiddenimports += tmp_ret[2]
+
+# Collect h11 (HTTP library used by uvicorn)
+tmp_ret = collect_all('h11')
+datas += tmp_ret[0]
+binaries += tmp_ret[1]
+hiddenimports += tmp_ret[2]
+
+# Collect httptools
+try:
+    tmp_ret = collect_all('httptools')
+    datas += tmp_ret[0]
+    binaries += tmp_ret[1]
+    hiddenimports += tmp_ret[2]
+except:
+    pass
+
 # Critical: Add all required imports explicitly
 hiddenimports += [
     # Core web framework
