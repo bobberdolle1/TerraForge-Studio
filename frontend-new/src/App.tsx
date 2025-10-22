@@ -3,12 +3,15 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Globe, Settings, Download, Map, Box } from 'lucide-react';
+import { Globe, Settings as SettingsIcon, Download, Map, Box } from 'lucide-react';
 import MapSelector from './components/MapSelector';
 import ExportPanel from './components/ExportPanel';
 import StatusMonitor from './components/StatusMonitor';
 import Preview3D from './components/Preview3D';
+import SettingsPage from './components/Settings/SettingsPage';
+import SetupWizard from './components/SetupWizard';
 import { terraforgeApi } from './services/api';
+import { settingsApi } from './services/settings-api';
 import type { BoundingBox, ExportFormat, ElevationSource, GenerationStatus } from './types';
 
 function App() {
@@ -16,12 +19,18 @@ function App() {
   const [activeTab, setActiveTab] = useState<'2d' | '3d'>('2d');
   const [currentTask, setCurrentTask] = useState<GenerationStatus | null>(null);
   const [appHealth, setAppHealth] = useState<any>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
 
-  // Check API health on startup
+  // Check API health and first run on startup
   useEffect(() => {
-    terraforgeApi.getHealth()
-      .then(health => setAppHealth(health))
-      .catch(console.error);
+    Promise.all([
+      terraforgeApi.getHealth(),
+      settingsApi.checkFirstRun()
+    ]).then(([health, firstRun]) => {
+      setAppHealth(health);
+      setShowWizard(firstRun.show_wizard);
+    }).catch(console.error);
   }, []);
 
   const handleGenerateTerrain = async (config: {
@@ -72,6 +81,16 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      {/* Setup Wizard */}
+      {showWizard && (
+        <SetupWizard onComplete={() => setShowWizard(false)} />
+      )}
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <SettingsPage onClose={() => setShowSettings(false)} />
+      )}
+
       {/* Header */}
       <header className="glass border-b border-gray-200">
         <div className="container mx-auto px-4 py-4">
@@ -94,6 +113,14 @@ function App() {
                   </span>
                 )}
               </div>
+              
+              <button
+                onClick={() => setShowSettings(true)}
+                className="flex items-center space-x-2 px-4 py-2 bg-white hover:bg-gray-100 rounded-md border border-gray-300 transition"
+              >
+                <SettingsIcon className="w-5 h-5" />
+                <span>Settings</span>
+              </button>
             </div>
           </div>
         </div>

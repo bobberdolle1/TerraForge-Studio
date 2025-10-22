@@ -1,431 +1,275 @@
 # 🌍 TerraForge Studio
 
-> **[English](#english)** | **[Русский](#russian)**
+**Professional Cross-Platform 3D Terrain Generator**
+
+Generate real-world terrains for Unreal Engine 5, Unity, and other platforms using satellite imagery and elevation data.
+
+[![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
+[![React 18](https://img.shields.io/badge/react-18-blue.svg)](https://reactjs.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
 
-<a name="english"></a>
+## ✨ Features
 
-## 🇬🇧 English Version
+### 🎮 Multi-Engine Support
+- **Unreal Engine 5** - Landscape heightmaps + weightmaps + Python import scripts
+- **Unity** - Terrain heightmaps + splatmaps + C# import scripts  
+- **GLTF/GLB** - Universal 3D meshes for Blender, Three.js, AR/VR
+- **GeoTIFF** - Georeferenced rasters for QGIS, ArcGIS
 
-**Professional Cross-Platform 3D Terrain and Real-World Map Generator**
+### 🌍 Data Sources
+- **OpenStreetMap** - Roads, buildings, POI (free)
+- **SRTM** - Global elevation data 30-90m (free)
+- **OpenTopography** - High-resolution DEMs 0.5-30m (free with API key)
+- **Sentinel Hub** - Satellite imagery 10-60m (paid)
+- **Azure Maps** - Vector data + elevation (paid)
+- **Google Earth Engine** - Advanced analysis (free with auth)
 
-A comprehensive tool for generating detailed and functional real-world terrain for **Unreal Engine 5**, **Unity**, and other game engines. Automatically creates heightmaps, roads, buildings, and vegetation based on advanced geospatial data sources including Sentinel Hub, OpenTopography, Azure Maps, and OpenStreetMap.
+### 🎨 Modern Interface
+- **React 18 + TypeScript** - Professional UI
+- **Interactive Maps** - Leaflet with drawing tools
+- **3D Preview** - CesiumJS integration (ready)
+- **Settings UI** - Secure API key management
+- **Setup Wizard** - 3-step onboarding
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
+### 🔐 Security & Settings
+- **Encrypted Storage** - API keys stored securely
+- **UI Management** - No manual .env editing
+- **Connection Testing** - Validate data sources
+- **Import/Export** - Share configurations
 
-### ✨ Key Features
+---
 
-**🌐 Advanced Geospatial Data Sources:**
-- 🛰️ **Sentinel Hub** - High-resolution satellite imagery (RGB, NIR, NDVI, temporal series)
-- 🏔️ **OpenTopography** - Precision DEMs/DSMs from LiDAR, SRTM, ASTER
-- 🗺️ **Azure Maps** - Vector data, routing, POI, elevation services
-- 🌍 **Google Earth Engine** - Massive geospatial computations, vegetation indices, classification
-- 📍 **OpenStreetMap** - Roads, buildings, land use (vector data)
+## 🚀 Quick Start
 
-**🎮 Multi-Engine Export:**
-- 🎨 **Unreal Engine 5** 
-  - 16-bit PNG/RAW heightmaps (Landscape-ready)
-  - Material weightmaps (rock, grass, dirt, sand)
-  - Road splines (Data Layers compatible)
-  - Instanced Static Meshes for buildings/trees
-- 🎯 **Unity**
-  - RAW 16-bit terrain heightmaps
-  - Splatmaps for terrain textures
-  - GameObject prefabs with world coordinates
-  - Addressable Assets support
-- 📦 **Generic Formats**
-  - GLTF/GLB - 3D meshes with textures
-  - GeoTIFF - Georeferenced raster data
-  - OBJ - Universal 3D format
-  - USDZ - Apple AR format
-  - JSON metadata (coordinates, CRS, scale)
+### Prerequisites
+- Python 3.13+
+- Node.js 18+
+- Poetry (for Python dependencies)
 
-**🎨 Interactive 3D Preview:**
-- 🌐 **CesiumJS Integration** - Real-time 3D terrain visualization
-- 🗺️ **Satellite Overlays** - Draped imagery on terrain
-- 🏗️ **Building Extrusion** - 3D building visualization
-- 🔄 **2D/3D Toggle** - Switch between map views
-- 📸 **Export Preview** - Screenshot/video generation
+### Installation
 
-**⚡ Professional Workflow:**
-- 🔄 **Incremental Updates** - Update only changed regions
-- 📊 **Batch Processing** - Generate multiple terrains in parallel
-- 🖼️ **Map Preview** - Visual overlays with statistics
-- 💾 **Smart Caching** - Efficient data reuse
-- 🌍 **Multi-CRS Support** - WGS84, UTM, custom projections
-
-**🌐 Modern Web Interface:**
-- ⚛️ **React + TypeScript** - Professional, responsive UI
-- 🎨 **Modern Design** - Clean, intuitive interface
-- 🗺️ **Advanced Map Tools** - Polygon, rectangle, circle selection
-- 🔍 **Global Search** - Find any location worldwide
-- 🌓 **Dark/Light Theme** - Customizable appearance
-- 🌍 **Localization** - English & Russian support
-
-### 🏗️ Architecture
-
-```
-TerraForge-Studio/
-├── realworldmapgen/              # Core Python package
-│   ├── core/                     # Core generation engine
-│   │   ├── sources/              # Data source adapters
-│   │   │   ├── sentinel_hub.py  # Sentinel Hub API
-│   │   │   ├── opentopography.py # OpenTopography API
-│   │   │   ├── azure_maps.py    # Azure Maps API
-│   │   │   ├── earth_engine.py  # Google Earth Engine
-│   │   │   └── osm_source.py    # OpenStreetMap
-│   │   ├── terrain/              # Heightmap generation
-│   │   ├── vector/               # Vector data processing
-│   │   └── generator.py          # Main orchestrator
-│   ├── exporters/                # Export modules
-│   │   ├── unreal5/              # Unreal Engine 5
-│   │   │   ├── heightmap.py      # UE5 heightmap export
-│   │   │   ├── weightmaps.py     # Material layers
-│   │   │   └── splines.py        # Road splines
-│   │   ├── unity/                # Unity
-│   │   │   ├── terrain.py        # Unity terrain export
-│   │   │   └── prefabs.py        # GameObject generation
-│   │   └── generic/              # Universal formats
-│   │       ├── gltf_exporter.py  # GLTF/GLB
-│   │       ├── geotiff.py        # GeoTIFF
-│   │       └── obj_exporter.py   # OBJ/USDZ
-│   ├── preview/                  # 3D preview renderer
-│   ├── ai/                       # AI terrain analysis (optional)
-│   └── api/                      # FastAPI REST API
-├── frontend/                     # React web interface
-│   ├── src/
-│   │   ├── components/           # UI components
-│   │   ├── views/                # Page views
-│   │   └── services/             # API services
-│   └── public/
-├── docs/                         # Documentation
-└── .env.example                  # Configuration template
-```
-
-### 🚀 Quick Start
-
-#### Prerequisites
-
-- **Python 3.13+**
-- **Node.js 18+** (for frontend development)
-- **Poetry** (Python dependency management)
-
-**Optional:**
-- **Ollama** (for AI terrain analysis) - [Download](https://ollama.ai)
-
-#### Installation
-
-**Windows (PowerShell):**
-```powershell
-git clone https://github.com/yourusername/TerraForge-Studio.git
-cd TerraForge-Studio
-
-# Setup and run
-.\setup.ps1       # First-time setup
-.\run.ps1         # Start application
-.\run.ps1 stop    # Stop application
-```
-
-**Linux/Mac:**
 ```bash
-git clone https://github.com/yourusername/TerraForge-Studio.git
+# 1. Clone repository
+git clone <your-repo-url>
 cd TerraForge-Studio
-
-chmod +x run.sh
-./run.sh         # Start (auto-installs dependencies)
-./run.sh stop    # Stop
-```
-
-**Manual Installation:**
-```bash
-# 1. Configure environment
-cp .env.example .env
-# Edit .env with your API keys
 
 # 2. Install Python dependencies
 poetry install
 
-# 3. Start backend API
-poetry run uvicorn realworldmapgen.api.main:app --host 0.0.0.0 --port 8000
-
-# 4. Install frontend dependencies (in another terminal)
-cd frontend
+# 3. Install frontend dependencies
+cd frontend-new
 npm install
-npm run dev
+cd ..
 
-# 5. Access application
-# Frontend: http://localhost:3000
-# API: http://localhost:8000
-# API Docs: http://localhost:8000/docs
+# 4. Copy environment template
+cp .env.example .env
 ```
 
-### 📖 Usage
-
-#### Web Interface
-
-1. **Open** browser at `http://localhost:3000`
-2. **Configure Data Sources** (Settings):
-   - Add API keys for Sentinel Hub, OpenTopography, Azure Maps
-   - Or use free OpenStreetMap + SRTM data
-3. **Select Area**:
-   - 🔍 Search for location
-   - 🔲 Draw rectangle, polygon, or circle
-   - 📐 View area statistics
-4. **Configure Export**:
-   - Choose target engine (UE5, Unity, Generic)
-   - Set heightmap resolution (512-8192)
-   - Enable features (roads, buildings, vegetation)
-5. **Generate**:
-   - Click "🚀 Generate Terrain"
-   - View 3D preview
-   - Download ZIP package
-
-#### API Example
+### Running
 
 ```bash
-curl -X POST "http://localhost:8000/api/generate" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "mountain_valley",
-    "bbox": {
-      "north": 46.5,
-      "south": 46.4,
-      "east": 8.0,
-      "west": 7.9
-    },
-    "resolution": 4096,
-    "export_formats": ["unreal5", "unity"],
-    "elevation_source": "opentopography",
-    "enable_roads": true,
-    "enable_buildings": true,
-    "enable_vegetation": true
-  }'
+# Terminal 1: Start backend
+poetry run uvicorn realworldmapgen.api.main:app --reload
+
+# Terminal 2: Start frontend
+cd frontend-new
+npm run dev
+
+# Open browser: http://localhost:3000
 ```
 
-### 🎮 Importing to Game Engines
+### First Use
 
-#### Unreal Engine 5
-
-1. Download the UE5 export package
-2. Extract to your project's `Content/` folder
-3. Use the included Python script to auto-import:
-   ```python
-   # Run in UE5 Python console
-   import unreal_import_script
-   unreal_import_script.import_terrain("path/to/package")
-   ```
-4. Files included:
-   - `heightmap_16bit.png` - Landscape heightmap
-   - `weightmap_*.png` - Material layers (R/G/B/A channels)
-   - `roads_splines.json` - Road network data
-   - `meshes_placement.json` - Building/tree coordinates
-   - `metadata.json` - Scale, coordinates, CRS
-
-See `docs/UNREAL_IMPORT.md` for detailed guide.
-
-#### Unity
-
-1. Download the Unity export package
-2. Extract to your project's `Assets/Terrains/` folder
-3. Use the C# Editor script:
-   ```csharp
-   // In Unity Editor
-   Tools > TerraForge > Import Terrain
-   // Select the package folder
-   ```
-4. Files included:
-   - `heightmap.raw` - 16-bit terrain heightmap
-   - `splatmap.png` - Terrain texture layers
-   - `objects.json` - GameObject placement data
-   - `metadata.json` - Scale, coordinates, CRS
-
-See `docs/UNITY_IMPORT.md` for detailed guide.
-
-#### Generic (GLTF/GeoTIFF)
-
-- **GLTF/GLB**: Load in Blender, Three.js, Babylon.js, etc.
-- **GeoTIFF**: Use in QGIS, ArcGIS, or other GIS software
-- **OBJ**: Universal 3D format for any software
-
-### ⚙️ Configuration
-
-Edit `.env` file:
-
-```env
-# Data Sources
-SENTINELHUB_CLIENT_ID=your_client_id
-SENTINELHUB_CLIENT_SECRET=your_secret
-OPENTOPOGRAPHY_API_KEY=your_api_key
-AZURE_MAPS_SUBSCRIPTION_KEY=your_key
-
-# Defaults
-DEFAULT_HEIGHTMAP_RESOLUTION=2048
-MAX_AREA_KM2=100.0
-ELEVATION_SOURCE_PRIORITY=opentopography,srtm,aster
-
-# Unreal Engine 5
-UE5_DEFAULT_LANDSCAPE_SIZE=2017  # 1009, 2017, 4033, 8129
-UE5_EXPORT_WEIGHTMAPS=true
-
-# Unity
-UNITY_DEFAULT_TERRAIN_SIZE=2049  # 513, 1025, 2049, 4097
-UNITY_EXPORT_SPLATMAPS=true
-```
-
-### 📦 Core Technologies
-
-**Backend:**
-- FastAPI - Modern async web framework
-- Rasterio - Geospatial raster I/O
-- GeoPandas - Vector data processing
-- SentinelHub - Satellite imagery API
-- Trimesh - 3D mesh processing
-- PyGLTF - GLTF export
-
-**Frontend:**
-- React 18 + TypeScript
-- React-Leaflet - Map interface
-- CesiumJS - 3D terrain visualization
-- Tailwind CSS - Modern styling
-- Vite - Fast build tool
-
-**Infrastructure:**
-- Poetry - Python dependencies
-- Docker - Optional containerization
-
-### 🗺️ Data Sources Comparison
-
-| Source | Resolution | Coverage | Requires API Key | Free Tier |
-|--------|-----------|----------|------------------|-----------|
-| **SRTM** | 30m-90m | Global | ❌ No | ✅ Unlimited |
-| **Sentinel Hub** | 10m-60m | Global | ✅ Yes | 🟡 Limited |
-| **OpenTopography** | 0.5m-30m | Regional (LiDAR) | ✅ Yes | ✅ Generous |
-| **Azure Maps** | Varies | Global | ✅ Yes | 🟡 Limited |
-| **OpenStreetMap** | Vector | Global | ❌ No | ✅ Unlimited |
-
-### 📝 Roadmap
-
-**Completed ✅:**
-- ✅ Multi-source geospatial data integration
-- ✅ Unreal Engine 5 export (heightmaps, weightmaps, splines)
-- ✅ Unity export (terrain, splatmaps, prefabs)
-- ✅ Generic export (GLTF, GeoTIFF, OBJ)
-- ✅ Modern React + TypeScript frontend
-
-**In Progress 🚧:**
-- 🚧 CesiumJS 3D preview integration
-- 🚧 Material classification using AI/ML
-- 🚧 Procedural road mesh generation
-
-**Planned 📋:**
-- 📋 Unreal Engine 5 plugin (one-click import)
-- 📋 Unity package (AssetStore-ready)
-- 📋 Real-time collaborative editing
-- 📋 Cloud-based processing (serverless)
-- 📋 Water body detection and generation
-- 📋 Procedural city generation
-- 📋 Support for Godot Engine, O3DE
-
-### 🤝 Contributing
-
-Contributions are welcome! See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for guidelines.
-
-### 📄 License
-
-MIT License - see [LICENSE](LICENSE) file.
-
-### 🙏 Acknowledgments
-
-- Inspired by [unrealheightmap](https://github.com/manticorp/unrealheightmap)
-- Built with [osmnx](https://github.com/gboeing/osmnx) by Geoff Boeing
-- Map data © [OpenStreetMap](https://www.openstreetmap.org) contributors
-- Powered by Sentinel Hub, OpenTopography, and Azure Maps APIs
+1. **Setup Wizard** - Complete 3 steps (language, API keys, default engine)
+2. **Select Area** - Draw rectangle on map
+3. **Configure** - Choose format, resolution, features
+4. **Generate** - Wait 2-10 minutes
+5. **Download** - Get ZIP with terrain files
+6. **Import** - Use auto-import scripts in your game engine
 
 ---
 
-<a name="russian"></a>
+## 📖 Documentation
 
-## 🇷🇺 Русская версия
+### User Guides
+- **[docs/QUICKSTART.md](docs/QUICKSTART.md)** - 5-minute quick start
+- **[docs/RUN_INSTRUCTIONS.md](docs/RUN_INSTRUCTIONS.md)** - Detailed setup guide
+- **[docs/SETTINGS_GUIDE.md](docs/SETTINGS_GUIDE.md)** - Configure API keys and settings
 
-**Профессиональный кроссплатформенный генератор 3D-ландшафтов реального мира**
+### Technical
+- **[docs/INSTALLATION.md](docs/INSTALLATION.md)** - Installation guide
+- **[docs/API_EXAMPLES.md](docs/API_EXAMPLES.md)** - API usage examples
+- **[docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)** - Development guide
 
-Комплексный инструмент для генерации детализированного реального рельефа для **Unreal Engine 5**, **Unity** и других игровых движков. Автоматически создаёт карты высот, дороги, здания и растительность на основе передовых геопространственных источников данных: Sentinel Hub, OpenTopography, Azure Maps и OpenStreetMap.
+### API Documentation
+- **Swagger UI**: http://localhost:8000/docs (when running)
+- **ReDoc**: http://localhost:8000/redoc (when running)
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
+---
 
-### ✨ Основные возможности
+## 🎯 Use Cases
 
-**🌐 Продвинутые геопространственные источники:**
-- 🛰️ **Sentinel Hub** - Спутниковые снимки высокого разрешения (RGB, NIR, NDVI, временные ряды)
-- 🏔️ **OpenTopography** - Высокоточные DEM/DSM из LiDAR, SRTM, ASTER
-- 🗺️ **Azure Maps** - Векторные данные, маршрутизация, POI, высоты
-- 🌍 **Google Earth Engine** - Массивные геопространственные вычисления, индексы растительности
-- 📍 **OpenStreetMap** - Дороги, здания, землепользование (векторные данные)
+### Game Development
+- Generate realistic terrains for open-world games
+- Import to UE5 or Unity with one click
+- Auto-generated material layers
+- Road networks included
 
-**🎮 Мульти-движковый экспорт:**
-- 🎨 **Unreal Engine 5**
-  - 16-битные PNG/RAW карты высот (готовые для Landscape)
-  - Карты весов материалов (камень, трава, земля, песок)
-  - Сплайны дорог (совместимые с Data Layers)
-  - Instanced Static Meshes для зданий/деревьев
-- 🎯 **Unity**
-  - RAW 16-битные карты высот terrain
-  - Splatmaps для текстур terrain
-  - Префабы GameObject с мировыми координатами
-  - Поддержка Addressable Assets
-- 📦 **Универсальные форматы**
-  - GLTF/GLB - 3D-меши с текстурами
-  - GeoTIFF - Георефе�енцированные растровые данные
-  - OBJ - Универсальный 3D-формат
-  - USDZ - Формат Apple AR
-  - JSON метаданные (координаты, CRS, масштаб)
+### Virtual Reality
+- Create immersive environments
+- Real-world locations
+- High-resolution heightmaps
+- GLTF for web-based VR
 
-**🎨 Интерактивное 3D-превью:**
-- 🌐 **Интеграция CesiumJS** - 3D-визуализация рельефа в реальном времени
-- 🗺️ **Наложение спутниковых снимков** - Текстуры на рельефе
-- 🏗️ **Экструзия зданий** - 3D-визуализация построек
-- 🔄 **Переключение 2D/3D** - Смена видов карты
-- 📸 **Экспорт превью** - Генерация скриншотов/видео
+### GIS Analysis
+- Export as GeoTIFF
+- Analyze in QGIS/ArcGIS
+- Georeferenced data
+- Proper CRS support
 
-**⚡ Профессиональный рабочий процесс:**
-- 🔄 **Инкрементальные обновления** - Обновление только изменённых регионов
-- 📊 **Пакетная обработка** - Генерация нескольких terrain параллельно
-- 🖼️ **Превью карт** - Визуальные наложения со статистикой
-- 💾 **Умное кэширование** - Эффективное переиспользование данных
-- 🌍 **Поддержка Multi-CRS** - WGS84, UTM, пользовательские проекции
+### Architectural Visualization
+- Real-world site context
+- Accurate elevations
+- Building footprints
+- Import to visualization software
 
-**🌐 Современный веб-интерфейс:**
-- ⚛️ **React + TypeScript** - Профессиональный, отзывчивый UI
-- 🎨 **Современный дизайн** - Чистый, интуитивный интерфейс
-- 🗺️ **Продвинутые инструменты карты** - Полигон, прямоугольник, круг
-- 🔍 **Глобальный поиск** - Найти любое место в мире
-- 🌓 **Тёмная/светлая тема** - Настраиваемый внешний вид
-- 🌍 **Локализация** - Поддержка английского и русского
+---
 
-*(Остальной контент аналогичен английской версии)*
+## 🏗️ Architecture
 
-### 🚀 Быстрый старт
+```
+TerraForge Studio/
+├── realworldmapgen/          # Python backend
+│   ├── core/                 # Data sources & generation
+│   ├── exporters/            # Multi-format export
+│   ├── settings/             # Secure configuration
+│   └── api/                  # FastAPI endpoints
+├── frontend-new/             # React frontend
+│   ├── src/components/        # UI components
+│   ├── src/services/         # API clients
+│   └── src/types/            # TypeScript definitions
+├── docs/                     # Documentation
+└── tests/                    # Automated tests
+```
 
-См. английскую версию выше для инструкций по установке.
+---
 
-### 📄 Лицензия
+## 🔧 Configuration
 
-Лицензия MIT - см. файл [LICENSE](LICENSE).
+### Environment Variables
+
+Create `.env` file:
+
+```env
+# Data Sources (optional)
+SENTINELHUB_CLIENT_ID=your_client_id
+SENTINELHUB_CLIENT_SECRET=your_client_secret
+OPENTOPOGRAPHY_API_KEY=your_api_key
+AZURE_MAPS_SUBSCRIPTION_KEY=your_subscription_key
+
+# Generation Settings
+DEFAULT_RESOLUTION=2048
+MAX_AREA_KM2=100.0
+CACHE_DIR=./cache
+OUTPUT_DIR=./output
+```
+
+### Settings UI
+
+Configure via web interface:
+1. Open http://localhost:3000
+2. Click "Settings" (top-right)
+3. Configure data sources, generation defaults, export profiles
+4. Test connections and save
+
+---
+
+## 📊 Performance
+
+### Generation Time
+- **Small area (5 km²)**: ~2 minutes
+- **Medium area (25 km²)**: ~10 minutes  
+- **Large area (100 km²)**: ~30 minutes
+
+### Supported Scales
+- **Minimum**: 1 km² @ 512px
+- **Maximum**: 500 km² @ 8192px
+- **Recommended**: 10-25 km² @ 2048px
+
+### File Sizes
+- **UE5 PNG**: ~8 MB (2048px)
+- **Unity RAW**: ~8 MB (2048px)
+- **GLTF**: ~20 MB (2048px)
+- **GeoTIFF**: ~8 MB (2048px)
+
+---
+
+## 🧪 Testing
+
+```bash
+# Run all tests
+pytest tests/ -v
+
+# Frontend tests
+pytest tests/test_frontend.py -v
+
+# API tests
+pytest tests/test_api_integration.py -v
+```
+
+---
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open Pull Request
+
+See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for detailed guidelines.
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 🙏 Acknowledgments
+
+- **OpenStreetMap** community for free vector data
+- **NASA** for SRTM elevation data
+- **Sentinel Hub** for satellite imagery
+- **OpenTopography** for high-resolution DEMs
+- **React** and **FastAPI** communities
+- **unrealheightmap** project for inspiration
+
+---
+
+## 📞 Support
+
+- **Documentation**: [docs/](docs/) folder
+- **Issues**: GitHub Issues
+- **Discussions**: GitHub Discussions
+- **API Docs**: http://localhost:8000/docs
 
 ---
 
 <div align="center">
 
-**Created with ❤️ for the game development community**
+# 🌍 Generate Amazing Terrains!
 
-⭐ **If you like this project, give it a star on GitHub!** ⭐
+**Professional 3D Terrain Generation Made Easy**
 
-[🌟 Star on GitHub](https://github.com/yourusername/TerraForge-Studio) | 
-[📖 Documentation](docs/) | 
-[🐛 Report Bug](https://github.com/yourusername/TerraForge-Studio/issues) | 
-[💡 Request Feature](https://github.com/yourusername/TerraForge-Studio/issues)
+[Get Started](docs/QUICKSTART.md) • [Documentation](docs/) • [API Reference](http://localhost:8000/docs)
+
+---
+
+*TerraForge Studio v1.0.0*  
+*Professional Cross-Platform 3D Terrain Generator*
 
 </div>

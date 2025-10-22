@@ -15,6 +15,7 @@ from ..models import (
 )
 from ..core.terrain_generator import TerraForgeGenerator
 from ..config import settings
+from .settings_routes import router as settings_router
 
 # Configure logging
 logging.basicConfig(
@@ -40,6 +41,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include settings router
+app.include_router(settings_router)
 
 # Global generator instance
 generator = TerraForgeGenerator()

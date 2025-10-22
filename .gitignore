@@ -16,12 +16,9 @@ parts/
 sdist/
 var/
 wheels/
-pip-wheel-metadata/
-share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
 
 # Virtual environments
 venv/
@@ -39,47 +36,45 @@ poetry.lock
 *.swo
 *~
 
-# Environment variables
-.env
-.env.local
-
-# Output and cache directories
-output/
-cache/
-*.log
-backend.log
-frontend.log
-.backend.pid
-.frontend.pid
-
 # OS
 .DS_Store
 Thumbs.db
 
-# Docker
-*.pid
-*.seed
-*.pid.lock
+# Project specific
+cache/
+output/
+temp/
+logs/
+*.log
 
-# Temporary files
-*.tmp
-*.temp
-.cache/
+# Environment
+.env
+.env.local
+.env.*.local
 
-# Generated maps
-*.png
-*.npy
-*.json
-!frontend/*.json
-!pyproject.json
+# Settings & Secrets (IMPORTANT!)
+data/
+.secret_key
+*.enc
+secrets.json
 
-# BeamNG files
-*.dae
-*.ter
+# Frontend
+frontend-new/node_modules/
+frontend-new/dist/
+frontend-new/.env.local
+frontend-new/npm-debug.log*
+frontend-new/yarn-debug.log*
+frontend-new/yarn-error.log*
 
-# Test coverage
+# Old frontend (if keeping)
+frontend/node_modules/
+
+# Tests
+.pytest_cache/
 .coverage
 htmlcov/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
+.tox/
+
+# Build artifacts
+*.zip
+*.tar.gz
