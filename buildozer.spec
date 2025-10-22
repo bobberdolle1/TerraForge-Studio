@@ -29,7 +29,7 @@ version = 1.0.2
 
 # (list) Application requirements
 # comma separated e.g. requirements = sqlite3,kivy
-requirements = python3,kivy==2.3.0,android,webview,pillow,requests
+requirements = python3,kivy==2.3.0,android,pyjnius,pillow,requests,fastapi,uvicorn,starlette,pydantic,h11,httptools,websockets,watchfiles,python-multipart,anyio,sniffio,click,numpy,shapely,geopandas,rasterio,pyproj
 
 # (str) Custom source folders for requirements
 # Sets custom source for any requirements with recipes
@@ -54,7 +54,7 @@ android.presplash_color = #667EEA
 # android.presplash_lottie = "path/to/lottie/file.json"
 
 # (list) Permissions
-android.permissions = INTERNET,ACCESS_NETWORK_STATE,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE
+android.permissions = INTERNET,ACCESS_NETWORK_STATE,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE,ACCESS_FINE_LOCATION,ACCESS_COARSE_LOCATION,CAMERA
 
 # (int) Target Android API, should be as high as possible.
 android.api = 33

@@ -55,14 +55,9 @@ datas += tmp_ret[0]
 binaries += tmp_ret[1]
 hiddenimports += tmp_ret[2]
 
-# Hidden imports for FastAPI and app modules
+# Critical: Add all required imports explicitly
 hiddenimports += [
-    'webview',
-    'bottle',
-    'proxy_tools',
-    'fastapi',
-    'pydantic',
-    'starlette',
+    # Core web framework
     'uvicorn',
     'uvicorn.logging',
     'uvicorn.loops',
@@ -70,19 +65,49 @@ hiddenimports += [
     'uvicorn.protocols',
     'uvicorn.protocols.http',
     'uvicorn.protocols.http.auto',
+    'uvicorn.protocols.http.h11_impl',
     'uvicorn.protocols.websockets',
     'uvicorn.protocols.websockets.auto',
     'uvicorn.lifespan',
     'uvicorn.lifespan.on',
+    'uvicorn.config',
+    'uvicorn.server',
+    'uvicorn.main',
+    
+    # FastAPI and dependencies
+    'fastapi',
+    'fastapi.routing',
+    'fastapi.responses',
+    'pydantic',
+    'pydantic.types',
+    'pydantic.fields',
+    'starlette',
+    'starlette.applications',
+    'starlette.routing',
+    'starlette.middleware',
+    'starlette.responses',
+    'starlette.staticfiles',
+    
+    # HTTP libraries
     'click',
     'h11',
     'httptools',
     'websockets',
     'watchfiles',
     'python-multipart',
+    'anyio',
+    'sniffio',
+    
+    # Pywebview
+    'webview',
+    'bottle',
+    'proxy_tools',
+    
+    # Application modules
     'realworldmapgen',
     'realworldmapgen.api',
     'realworldmapgen.api.main',
+    'realworldmapgen.config',
     'realworldmapgen.core',
     'realworldmapgen.elevation',
 ]

@@ -1,19 +1,29 @@
 #!/usr/bin/env python3
 """
 TerraForge Studio - Android Main Entry Point
-Simplified version for mobile devices
+Full-featured mobile version with 3D preview and real processing
 """
+
+import os
+import sys
+import threading
+import socket
+from pathlib import Path
 
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.button import Button
 from kivy.uix.label import Label
-from kivy.uix.textinput import TextInput
-from kivy.uix.scrollview import ScrollView
-from kivy.uix.gridlayout import GridLayout
 from kivy.core.window import Window
 from kivy.graphics import Color, Rectangle
-import webbrowser
+from kivy.clock import Clock
+
+try:
+    from android.runnable import run_on_ui_thread
+    from jnius import autoclass, cast
+    ANDROID = True
+except ImportError:
+    ANDROID = False
+    run_on_ui_thread = lambda x: x
 
 # Set window size for desktop testing
 # Window.size = (360, 640)
