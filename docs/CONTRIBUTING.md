@@ -10,7 +10,7 @@ If you find a bug, please open an issue with:
 - Clear description of the problem
 - Steps to reproduce
 - Expected vs actual behavior
-- System information (OS, Python version, Docker version)
+- System information (OS, Python version, Poetry version)
 - Relevant logs or error messages
 
 ### Suggesting Features
@@ -147,7 +147,7 @@ Current areas where contributions are especially welcome:
 
 ## 🐛 Debugging Tips
 
-- Check Docker logs: `docker-compose logs -f`
+- Check backend terminal output for errors
 - Enable verbose logging in `.env`: `LOG_LEVEL=DEBUG`
 - Use FastAPI docs: `http://localhost:8000/docs`
 - Test Ollama separately: `curl http://localhost:11434/api/tags`

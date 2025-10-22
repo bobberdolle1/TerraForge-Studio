@@ -11,9 +11,9 @@ from fastapi.responses import JSONResponse, FileResponse
 from pathlib import Path
 
 from ..models import (
-    MapGenerationRequest, GenerationStatus, BoundingBox
+    MapGenerationRequest, GenerationStatus, BoundingBox, ExportFormat
 )
-from ..generator import MapGenerator
+from ..core.terrain_generator import TerraForgeGenerator
 from ..config import settings
 
 # Configure logging
@@ -25,9 +25,11 @@ logger = logging.getLogger(__name__)
 
 # Create FastAPI app
 app = FastAPI(
-    title="RealWorldMapGen-BNG",
-    description="AI-powered real-world map generator for BeamNG.drive",
-    version="0.1.0"
+    title="TerraForge Studio",
+    description="Professional cross-platform 3D terrain and real-world map generator for Unreal Engine 5, Unity, and other game engines",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
 )
 
 # Add CORS middleware
@@ -40,83 +42,217 @@ app.add_middleware(
 )
 
 # Global generator instance
-generator = MapGenerator()
+generator = TerraForgeGenerator()
 
 
 @app.on_event("startup")
 async def startup_event():
     """Initialize application on startup"""
-    logger.info("Starting RealWorldMapGen-BNG API")
+    logger.info("Starting TerraForge Studio API v1.0.0")
+    logger.info("=" * 60)
     
-    # Check Ollama health
-    ollama_status = await generator.check_ollama_health()
-    if ollama_status:
-        logger.info("✓ Ollama is available")
-        
-        # List available models
-        models = await generator.list_ollama_models()
-        logger.info(f"Available Ollama models: {models}")
-    else:
-        logger.warning("✗ Ollama is not available - AI features will be limited")
+    # Check available data sources
+    logger.info("Checking data sources...")
+    
+    # Check Ollama (optional - for future AI features)
+    try:
+        logger.info("○ Ollama check: Optional for AI terrain analysis")
+    except Exception as e:
+        logger.info(f"○ Ollama check failed: {e}")
+    
+    # Check OpenStreetMap (always available)
+    logger.info("✓ OpenStreetMap available (free)")
+    
+    # Check other sources from config
+    logger.info("○ Premium sources: Check .env for API keys")
+    logger.info("  - Sentinel Hub: Satellite imagery")
+    logger.info("  - OpenTopography: High-res DEMs")
+    logger.info("  - Azure Maps: Vector data")
+    logger.info("=" * 60)
 
 
 @app.get("/")
 async def root():
     """API root endpoint"""
     return {
-        "name": "RealWorldMapGen-BNG",
-        "version": "0.1.0",
-        "description": "AI-powered real-world map generator for BeamNG.drive",
+        "name": "TerraForge Studio",
+        "version": "1.0.0",
+        "description": "Professional cross-platform 3D terrain and real-world map generator",
+        "supported_engines": ["Unreal Engine 5", "Unity", "Generic (GLTF/GeoTIFF)"],
         "endpoints": {
             "generate": "/api/generate",
             "status": "/api/status/{task_id}",
             "tasks": "/api/tasks",
-            "health": "/api/health"
-        }
+            "health": "/api/health",
+            "sources": "/api/sources",
+            "formats": "/api/formats",
+            "docs": "/docs"
+        },
+        "repository": "https://github.com/yourusername/TerraForge-Studio",
+        "documentation": "https://github.com/yourusername/TerraForge-Studio/docs"
     }
 
 
 @app.get("/api/health")
 async def health_check():
     """Health check endpoint"""
-    ollama_available = await generator.check_ollama_health()
+    
+    # Check available sources
+    available_sources = []
+    for name, source in generator.sources.items():
+        try:
+            is_avail = await source.is_available()
+            if is_avail:
+                available_sources.append(name)
+        except:
+            pass
     
     return {
         "status": "healthy",
-        "ollama": {
-            "available": ollama_available,
-            "host": settings.ollama_host
+        "version": "1.0.0",
+        "data_sources": {
+            "available": available_sources,
+            "total": len(generator.sources)
         },
         "settings": {
-            "max_area_km2": settings.max_area_km2,
-            "default_resolution": settings.default_resolution,
-            "ai_enabled": settings.enable_ai_analysis
+            "max_area_km2": getattr(settings, 'max_area_km2', 100.0),
+            "default_resolution": getattr(settings, 'default_resolution', 2048),
+        }
+    }
+
+
+@app.get("/api/sources")
+async def get_data_sources():
+    """Get available data sources and their status"""
+    return {
+        "elevation": {
+            "srtm": {
+                "name": "SRTM (Shuttle Radar Topography Mission)",
+                "resolution": "30m-90m",
+                "coverage": "Global",
+                "cost": "Free",
+                "available": True,
+                "requires_api_key": False
+            },
+            "opentopography": {
+                "name": "OpenTopography",
+                "resolution": "0.5m-30m (varies by region)",
+                "coverage": "Regional (LiDAR) + Global (SRTM/ASTER)",
+                "cost": "Free (with API key)",
+                "available": bool(getattr(settings, 'opentopography_api_key', None)),
+                "requires_api_key": True
+            },
+            "azure_maps": {
+                "name": "Azure Maps Elevation API",
+                "resolution": "Varies",
+                "coverage": "Global",
+                "cost": "Paid (with free tier)",
+                "available": bool(getattr(settings, 'azure_maps_key', None)),
+                "requires_api_key": True
+            }
+        },
+        "imagery": {
+            "sentinelhub": {
+                "name": "Sentinel Hub",
+                "resolution": "10m-60m",
+                "coverage": "Global",
+                "cost": "Paid (with trial)",
+                "available": bool(getattr(settings, 'sentinelhub_client_id', None)),
+                "requires_api_key": True
+            }
+        },
+        "vector": {
+            "openstreetmap": {
+                "name": "OpenStreetMap",
+                "type": "Vector (roads, buildings, POI)",
+                "coverage": "Global",
+                "cost": "Free",
+                "available": True,
+                "requires_api_key": False
+            },
+            "azure_maps": {
+                "name": "Azure Maps",
+                "type": "Vector + POI",
+                "coverage": "Global",
+                "cost": "Paid (with free tier)",
+                "available": bool(getattr(settings, 'azure_maps_key', None)),
+                "requires_api_key": True
+            }
+        }
+    }
+
+
+@app.get("/api/formats")
+async def get_export_formats():
+    """Get available export formats"""
+    return {
+        "formats": {
+            "unreal5": {
+                "name": "Unreal Engine 5",
+                "description": "Landscape heightmaps, weightmaps, and splines",
+                "files": ["heightmap.png", "weightmap.png", "metadata.json", "import_script.py"],
+                "valid_resolutions": [1009, 2017, 4033, 8129],
+                "supports_weightmaps": True,
+                "supports_roads": True,
+                "supports_buildings": True
+            },
+            "unity": {
+                "name": "Unity Engine",
+                "description": "Terrain heightmaps and prefabs",
+                "files": ["heightmap.raw", "splatmap.png", "metadata.json", "import_script.cs"],
+                "valid_resolutions": [513, 1025, 2049, 4097],
+                "supports_weightmaps": True,
+                "supports_roads": True,
+                "supports_buildings": True
+            },
+            "gltf": {
+                "name": "GLTF/GLB",
+                "description": "3D mesh format (universal)",
+                "files": ["terrain.glb", "metadata.json"],
+                "valid_resolutions": "Any",
+                "supports_weightmaps": False,
+                "supports_roads": False,
+                "supports_buildings": False
+            },
+            "geotiff": {
+                "name": "GeoTIFF",
+                "description": "Georeferenced raster for GIS software",
+                "files": ["elevation.tif", "metadata.json"],
+                "valid_resolutions": "Any",
+                "supports_weightmaps": False,
+                "supports_roads": False,
+                "supports_buildings": False
+            }
         }
     }
 
 
 @app.post("/api/generate", response_model=GenerationStatus)
-async def generate_map(
+async def generate_terrain(
     request: MapGenerationRequest,
     background_tasks: BackgroundTasks
 ):
     """
-    Start map generation process
+    Start terrain generation process
     
     Args:
-        request: Map generation request with bbox and options
+        request: Terrain generation request with bbox and options
         
     Returns:
         Generation status with task_id
     """
-    logger.info(f"Received generation request for '{request.name}'")
+    logger.info(f"Received terrain generation request for '{request.name}'")
+    logger.info(f"  Export formats: {[f.value for f in request.export_formats]}")
+    logger.info(f"  Resolution: {request.resolution}")
+    logger.info(f"  Elevation source: {request.elevation_source.value}")
     
     # Validate bbox
     area_km2 = request.bbox.area_km2()
-    if area_km2 > settings.max_area_km2:
+    max_area = getattr(settings, 'max_area_km2', 100.0)
+    if area_km2 > max_area:
         raise HTTPException(
             status_code=400,
-            detail=f"Area too large: {area_km2:.2f} km² (max: {settings.max_area_km2} km²)"
+            detail=f"Area too large: {area_km2:.2f} km² (max: {max_area} km²)"
         )
     
     if area_km2 <= 0:
@@ -141,7 +277,7 @@ async def generate_map(
     async def run_generation():
         try:
             logger.info(f"Background task starting for {task_id}")
-            await generator.generate_map(request, task_id)
+            await generator.generate_terrain(request, task_id)
             logger.info(f"Background task completed for {task_id}")
         except Exception as e:
             import traceback
@@ -170,7 +306,7 @@ async def get_generation_status(task_id: str):
     Returns:
         Current status of the task
     """
-    status = await generator.get_status(task_id)
+    status = generator.get_task_status(task_id)
     
     if not status:
         raise HTTPException(

@@ -47,6 +47,10 @@ poetry.lock
 output/
 cache/
 *.log
+backend.log
+frontend.log
+.backend.pid
+.frontend.pid
 
 # OS
 .DS_Store

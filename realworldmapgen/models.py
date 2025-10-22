@@ -55,17 +55,45 @@ class BoundingBox(BaseModel):
         return area
 
 
+class ExportFormat(str, Enum):
+    """Available export formats"""
+    UNREAL5 = "unreal5"
+    UNITY = "unity"
+    GLTF = "gltf"
+    GEOTIFF = "geotiff"
+    OBJ = "obj"
+    ALL = "all"
+
+
+class ElevationSource(str, Enum):
+    """Available elevation data sources"""
+    SRTM = "srtm"
+    OPENTOPOGRAPHY = "opentopography"
+    SENTINELHUB = "sentinelhub"
+    AZURE_MAPS = "azure_maps"
+    AUTO = "auto"  # Automatic selection based on availability
+
+
 class MapGenerationRequest(BaseModel):
-    """Request to generate a map"""
+    """Request to generate a terrain"""
     bbox: BoundingBox
-    name: str = Field(..., description="Map name")
-    resolution: Optional[int] = Field(None, description="Heightmap resolution")
-    enable_ai_analysis: bool = Field(True, description="Enable AI terrain analysis")
+    name: str = Field(..., description="Terrain name")
+    resolution: Optional[int] = Field(2048, description="Heightmap resolution")
+    export_formats: List[ExportFormat] = Field(
+        [ExportFormat.UNREAL5], 
+        description="Export formats (unreal5, unity, gltf, geotiff, all)"
+    )
+    elevation_source: ElevationSource = Field(
+        ElevationSource.AUTO,
+        description="Elevation data source"
+    )
+    enable_ai_analysis: bool = Field(False, description="Enable AI terrain analysis (requires Ollama)")
     enable_roads: bool = Field(True, description="Generate roads")
-    enable_traffic_lights: bool = Field(True, description="Generate traffic lights")
-    enable_parking: bool = Field(True, description="Generate parking lots")
     enable_buildings: bool = Field(True, description="Generate buildings")
     enable_vegetation: bool = Field(True, description="Generate vegetation")
+    enable_water_bodies: bool = Field(True, description="Detect water bodies")
+    enable_weightmaps: bool = Field(True, description="Generate material weightmaps (UE5/Unity)")
+    enable_3d_preview: bool = Field(False, description="Generate 3D preview")
 
 
 class AIAnalysisResult(BaseModel):

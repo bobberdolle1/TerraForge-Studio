@@ -1,4 +1,4 @@
-# 🗺️ RealWorldMapGen-BNG
+# 🌍 TerraForge Studio
 
 > **[English](#english)** | **[Русский](#russian)**
 
@@ -8,124 +8,155 @@
 
 ## 🇬🇧 English Version
 
-**AI-Powered Real-World Map Generator for BeamNG.drive**
+**Professional Cross-Platform 3D Terrain and Real-World Map Generator**
 
-A comprehensive tool for generating detailed and functional real-world maps for BeamNG.drive. Automatically creates roads, traffic lights, parking lots, buildings, and vegetation based on OpenStreetMap data analysis and Qwen AI models via Ollama.
+A comprehensive tool for generating detailed and functional real-world terrain for **Unreal Engine 5**, **Unity**, and other game engines. Automatically creates heightmaps, roads, buildings, and vegetation based on advanced geospatial data sources including Sentinel Hub, OpenTopography, Azure Maps, and OpenStreetMap.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
-[![Docker](https://img.shields.io/badge/docker-ready-brightgreen.svg)](https://www.docker.com/)
 
 ### ✨ Key Features
 
-**🤖 Advanced AI Analysis:**
-- 🛰️ **Satellite Imagery Analysis** - Downloads and analyzes real satellite images (OSM, Mapbox, Bing Maps)
-- 🔍 **Detailed Road Detection** - AI extracts road width, lane count, markings, surface type, and condition
-- 🏗️ **Building Analysis** - Precise footprint boundaries, height from shadows, roof types, materials
-- 🌳 **Surface Classification** - Identifies paved areas, vegetation, water bodies, bare ground
-- 🚗 **AI-Optimized Traffic** - Qwen3-Coder generates intelligent traffic routes and driver behaviors
+**🌐 Advanced Geospatial Data Sources:**
+- 🛰️ **Sentinel Hub** - High-resolution satellite imagery (RGB, NIR, NDVI, temporal series)
+- 🏔️ **OpenTopography** - Precision DEMs/DSMs from LiDAR, SRTM, ASTER
+- 🗺️ **Azure Maps** - Vector data, routing, POI, elevation services
+- 🌍 **Google Earth Engine** - Massive geospatial computations, vegetation indices, classification
+- 📍 **OpenStreetMap** - Roads, buildings, land use (vector data)
 
 **🎮 Multi-Engine Export:**
-- 🏁 **BeamNG.drive** - Complete mod packages with traffic system integration
-- 🎨 **Unreal Engine 5** - Landscape heightmaps, road splines, static mesh placement
-- 🎯 **Unity** - Terrain data, GameObject instantiation, mesh generation
-- 📦 **One-Click Packaging** - Auto-generated .zip mods ready to install
+- 🎨 **Unreal Engine 5** 
+  - 16-bit PNG/RAW heightmaps (Landscape-ready)
+  - Material weightmaps (rock, grass, dirt, sand)
+  - Road splines (Data Layers compatible)
+  - Instanced Static Meshes for buildings/trees
+- 🎯 **Unity**
+  - RAW 16-bit terrain heightmaps
+  - Splatmaps for terrain textures
+  - GameObject prefabs with world coordinates
+  - Addressable Assets support
+- 📦 **Generic Formats**
+  - GLTF/GLB - 3D meshes with textures
+  - GeoTIFF - Georeferenced raster data
+  - OBJ - Universal 3D format
+  - USDZ - Apple AR format
+  - JSON metadata (coordinates, CRS, scale)
 
-**🗺️ Advanced Mapping:**
-- 🌍 **Real-World Data** - Extract from OpenStreetMap for any location worldwide
-- 🏔️ **Elevation Data** - SRTM-based heightmap generation
-- 🛣️ **Smart Road Networks** - Automatic road types, lanes, materials, widths
-- 🚦 **Traffic Infrastructure** - Lights, parking, spawn points, AI behaviors
-- 🏢 **Building Placement** - Height info, types, custom prefab support
-- 🎨 **Custom Prefabs** - Import your own 3D models (.jbeam, .fbx, .obj, .gltf)
+**🎨 Interactive 3D Preview:**
+- 🌐 **CesiumJS Integration** - Real-time 3D terrain visualization
+- 🗺️ **Satellite Overlays** - Draped imagery on terrain
+- 🏗️ **Building Extrusion** - 3D building visualization
+- 🔄 **2D/3D Toggle** - Switch between map views
+- 📸 **Export Preview** - Screenshot/video generation
 
-**⚡ Performance & Workflow:**
-- 🔄 **Incremental Updates** - Update only changed parts of existing maps
-- 📊 **Batch Processing** - Generate multiple maps in parallel
+**⚡ Professional Workflow:**
+- 🔄 **Incremental Updates** - Update only changed regions
+- 📊 **Batch Processing** - Generate multiple terrains in parallel
 - 🖼️ **Map Preview** - Visual overlays with statistics
-- 💾 **Smart Caching** - Imagery and OSM data caching
+- 💾 **Smart Caching** - Efficient data reuse
+- 🌍 **Multi-CRS Support** - WGS84, UTM, custom projections
 
 **🌐 Modern Web Interface:**
-- 🎨 **Glassmorphism UI** - Beautiful modern design with animations
-- 🔧 **Advanced Selection Tools** - Rectangle, polygon, circle area selection
-- 🔍 **Location Search** - Find any place worldwide instantly
-- 🗺️ **Multiple Basemaps** - OSM, Humanitarian, Satellite views
-- 📍 **Real-time Coordinates** - Mouse position and area statistics
-- 🐳 **Docker Ready** - Fully containerized with Docker Compose
+- ⚛️ **React + TypeScript** - Professional, responsive UI
+- 🎨 **Modern Design** - Clean, intuitive interface
+- 🗺️ **Advanced Map Tools** - Polygon, rectangle, circle selection
+- 🔍 **Global Search** - Find any location worldwide
+- 🌓 **Dark/Light Theme** - Customizable appearance
+- 🌍 **Localization** - English & Russian support
 
 ### 🏗️ Architecture
 
 ```
-RealWorldMapGen-BNG/
+TerraForge-Studio/
 ├── realworldmapgen/              # Core Python package
-│   ├── ai/                       # AI integration (Ollama + Qwen models)
-│   │   ├── ollama_client.py      # Ollama API client
-│   │   └── terrain_analyzer.py   # Advanced vision analysis
-│   ├── imagery/                  # Satellite imagery downloader
-│   ├── osm/                      # OpenStreetMap extraction
-│   ├── elevation/                # Heightmap generation
-│   ├── traffic/                  # AI traffic route generation
-│   │   ├── traffic_generator.py  # Route optimization
-│   │   └── beamng_traffic.py     # BeamNG integration
-│   ├── prefabs/                  # Custom prefab management
-│   ├── preview/                  # Map preview generator
-│   ├── packaging/                # BeamNG mod packager
-│   ├── incremental/              # Incremental updates
-│   ├── exporters/                # Multi-engine exporters
-│   │   ├── beamng_exporter.py    # BeamNG.drive
-│   │   ├── unreal_exporter.py    # Unreal Engine 5
-│   │   └── unity_exporter.py     # Unity
-│   ├── api/                      # FastAPI REST API
-│   └── generator.py              # Main orchestrator
-├── frontend/                     # Modern web interface
-│   ├── index.html                # UI layout
-│   ├── style.css                 # Glassmorphism design
-│   └── app.js                    # Advanced map controls
+│   ├── core/                     # Core generation engine
+│   │   ├── sources/              # Data source adapters
+│   │   │   ├── sentinel_hub.py  # Sentinel Hub API
+│   │   │   ├── opentopography.py # OpenTopography API
+│   │   │   ├── azure_maps.py    # Azure Maps API
+│   │   │   ├── earth_engine.py  # Google Earth Engine
+│   │   │   └── osm_source.py    # OpenStreetMap
+│   │   ├── terrain/              # Heightmap generation
+│   │   ├── vector/               # Vector data processing
+│   │   └── generator.py          # Main orchestrator
+│   ├── exporters/                # Export modules
+│   │   ├── unreal5/              # Unreal Engine 5
+│   │   │   ├── heightmap.py      # UE5 heightmap export
+│   │   │   ├── weightmaps.py     # Material layers
+│   │   │   └── splines.py        # Road splines
+│   │   ├── unity/                # Unity
+│   │   │   ├── terrain.py        # Unity terrain export
+│   │   │   └── prefabs.py        # GameObject generation
+│   │   └── generic/              # Universal formats
+│   │       ├── gltf_exporter.py  # GLTF/GLB
+│   │       ├── geotiff.py        # GeoTIFF
+│   │       └── obj_exporter.py   # OBJ/USDZ
+│   ├── preview/                  # 3D preview renderer
+│   ├── ai/                       # AI terrain analysis (optional)
+│   └── api/                      # FastAPI REST API
+├── frontend/                     # React web interface
+│   ├── src/
+│   │   ├── components/           # UI components
+│   │   ├── views/                # Page views
+│   │   └── services/             # API services
+│   └── public/
 ├── docs/                         # Documentation
-├── docker-compose.yml            # Docker orchestration
-└── pyproject.toml                # Poetry dependencies
+└── .env.example                  # Configuration template
 ```
 
 ### 🚀 Quick Start
 
 #### Prerequisites
 
-- **Docker & Docker Compose** (for backend and frontend)
-- **Ollama** (installed locally - download from https://ollama.ai)
-- **Python 3.13+** (for local development)
-- **Poetry** (for dependency management)
+- **Python 3.13+**
+- **Node.js 18+** (for frontend development)
+- **Poetry** (Python dependency management)
+
+**Optional:**
+- **Ollama** (for AI terrain analysis) - [Download](https://ollama.ai)
 
 #### Installation
 
 **Windows (PowerShell):**
 ```powershell
-git clone https://github.com/bobberdolle1/RealWorldMapGen-BNG.git
-cd RealWorldMapGen-BNG
-.\setup.ps1
+git clone https://github.com/yourusername/TerraForge-Studio.git
+cd TerraForge-Studio
+
+# Setup and run
+.\setup.ps1       # First-time setup
+.\run.ps1         # Start application
+.\run.ps1 stop    # Stop application
 ```
 
 **Linux/Mac:**
 ```bash
-git clone https://github.com/bobberdolle1/RealWorldMapGen-BNG.git
-cd RealWorldMapGen-BNG
-chmod +x setup.sh
-./setup.sh
+git clone https://github.com/yourusername/TerraForge-Studio.git
+cd TerraForge-Studio
+
+chmod +x run.sh
+./run.sh         # Start (auto-installs dependencies)
+./run.sh stop    # Stop
 ```
 
 **Manual Installation:**
 ```bash
-# 1. Create environment file
+# 1. Configure environment
 cp .env.example .env
+# Edit .env with your API keys
 
-# 2. Install and start Ollama
-# Download from https://ollama.ai
-ollama serve
+# 2. Install Python dependencies
+poetry install
 
-# 3. Start Docker containers
-docker-compose up -d
+# 3. Start backend API
+poetry run uvicorn realworldmapgen.api.main:app --host 0.0.0.0 --port 8000
 
-# 4. Access the application
-# Frontend: http://localhost:8080
+# 4. Install frontend dependencies (in another terminal)
+cd frontend
+npm install
+npm run dev
+
+# 5. Access application
+# Frontend: http://localhost:3000
 # API: http://localhost:8000
 # API Docs: http://localhost:8000/docs
 ```
@@ -134,26 +165,22 @@ docker-compose up -d
 
 #### Web Interface
 
-1. **Open** browser at `http://localhost:8080`
-2. **Search** for a location (or navigate manually on the map)
-3. **Select Area** using one of three tools:
-   - 🔲 **Rectangle** - Click and drag to create a rectangular area
-   - 🔺 **Polygon** - Click points to draw a custom polygon shape
-   - ⭕ **Circle** - Click and drag to create a circular area
-4. **Configure** generation options:
-   - Map name (alphanumeric, underscores, hyphens)
-   - Export format (BeamNG.drive, Unreal Engine 5, Unity, or All)
-   - Heightmap resolution (1024/2048/4096)
-   - Enable/disable features (AI analysis, roads, traffic, buildings, vegetation)
-5. **Generate** - Click the "🚀 Generate Map" button
-6. **Download** - Get your .zip mod or individual files when complete
-
-**Map Controls:**
-- 🔍 Location search with autocomplete
-- 📍 Real-time coordinate display
-- 📐 Selected area info (bounds + size in km²)
-- 🗺️ Switch between OSM, Humanitarian, and Satellite views
-- ❌ Clear selection or 🎯 Fit map to selection
+1. **Open** browser at `http://localhost:3000`
+2. **Configure Data Sources** (Settings):
+   - Add API keys for Sentinel Hub, OpenTopography, Azure Maps
+   - Or use free OpenStreetMap + SRTM data
+3. **Select Area**:
+   - 🔍 Search for location
+   - 🔲 Draw rectangle, polygon, or circle
+   - 📐 View area statistics
+4. **Configure Export**:
+   - Choose target engine (UE5, Unity, Generic)
+   - Set heightmap resolution (512-8192)
+   - Enable features (roads, buildings, vegetation)
+5. **Generate**:
+   - Click "🚀 Generate Terrain"
+   - View 3D preview
+   - Download ZIP package
 
 #### API Example
 
@@ -161,153 +188,160 @@ docker-compose up -d
 curl -X POST "http://localhost:8000/api/generate" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "test_map",
+    "name": "mountain_valley",
     "bbox": {
-      "north": 37.8,
-      "south": 37.79,
-      "east": -122.4,
-      "west": -122.41
+      "north": 46.5,
+      "south": 46.4,
+      "east": 8.0,
+      "west": 7.9
     },
-    "resolution": 2048,
-    "export_engine": "beamng",
-    "enable_ai_analysis": true,
+    "resolution": 4096,
+    "export_formats": ["unreal5", "unity"],
+    "elevation_source": "opentopography",
     "enable_roads": true,
-    "enable_traffic_lights": true,
-    "enable_parking": true,
     "enable_buildings": true,
     "enable_vegetation": true
   }'
 ```
 
-### 🎮 Importing to BeamNG.drive
+### 🎮 Importing to Game Engines
 
-**Easy Installation (Recommended):**
-1. Download the `.zip` file from the web interface
-2. Extract to `<BeamNG.drive>/mods/` directory
-3. Launch BeamNG.drive - your map will be available automatically!
+#### Unreal Engine 5
 
-**Manual Installation:**
-1. Locate generated map in `output/<map_name>/` directory
-2. Copy the entire folder to:
+1. Download the UE5 export package
+2. Extract to your project's `Content/` folder
+3. Use the included Python script to auto-import:
+   ```python
+   # Run in UE5 Python console
+   import unreal_import_script
+   unreal_import_script.import_terrain("path/to/package")
    ```
-   <BeamNG.drive>/levels/<map_name>/
+4. Files included:
+   - `heightmap_16bit.png` - Landscape heightmap
+   - `weightmap_*.png` - Material layers (R/G/B/A channels)
+   - `roads_splines.json` - Road network data
+   - `meshes_placement.json` - Building/tree coordinates
+   - `metadata.json` - Scale, coordinates, CRS
+
+See `docs/UNREAL_IMPORT.md` for detailed guide.
+
+#### Unity
+
+1. Download the Unity export package
+2. Extract to your project's `Assets/Terrains/` folder
+3. Use the C# Editor script:
+   ```csharp
+   // In Unity Editor
+   Tools > TerraForge > Import Terrain
+   // Select the package folder
    ```
-3. Files included:
-   - `main.level.json` - Level configuration
-   - `<map_name>_heightmap.png` - Terrain heightmap
-   - `roads.json` - Road network data
-   - `objects.json` - Buildings and vegetation
-   - `traffic.json` - Traffic system (lights, parking, spawn points, AI behaviors)
-   - `info.json` - Map metadata
-4. Launch BeamNG.drive and select your custom map
+4. Files included:
+   - `heightmap.raw` - 16-bit terrain heightmap
+   - `splatmap.png` - Terrain texture layers
+   - `objects.json` - GameObject placement data
+   - `metadata.json` - Scale, coordinates, CRS
 
-**For Unreal Engine 5:**
-- Import `.raw` heightmap using the Python script provided
-- Load road splines and static mesh placement JSON
-- See `docs/UNREAL_IMPORT.md` for details
+See `docs/UNITY_IMPORT.md` for detailed guide.
 
-**For Unity:**
-- Import `.raw` terrain heightmap
-- Use the C# Editor script for automatic setup
-- See `docs/UNITY_IMPORT.md` for details
+#### Generic (GLTF/GeoTIFF)
+
+- **GLTF/GLB**: Load in Blender, Three.js, Babylon.js, etc.
+- **GeoTIFF**: Use in QGIS, ArcGIS, or other GIS software
+- **OBJ**: Universal 3D format for any software
 
 ### ⚙️ Configuration
 
-Edit `.env` file to customize:
+Edit `.env` file:
 
 ```env
-# Ollama Configuration
-OLLAMA_HOST=http://localhost:11434
-OLLAMA_VISION_MODEL=qwen3-vl:235b-cloud
-OLLAMA_CODER_MODEL=qwen3-coder:480b-cloud
+# Data Sources
+SENTINELHUB_CLIENT_ID=your_client_id
+SENTINELHUB_CLIENT_SECRET=your_secret
+OPENTOPOGRAPHY_API_KEY=your_api_key
+AZURE_MAPS_SUBSCRIPTION_KEY=your_key
 
-# Map Generation Settings
-DEFAULT_RESOLUTION=2048
+# Defaults
+DEFAULT_HEIGHTMAP_RESOLUTION=2048
 MAX_AREA_KM2=100.0
+ELEVATION_SOURCE_PRIORITY=opentopography,srtm,aster
 
-# Processing Settings
-ENABLE_AI_ANALYSIS=true
-PARALLEL_PROCESSING=true
-MAX_WORKERS=4
+# Unreal Engine 5
+UE5_DEFAULT_LANDSCAPE_SIZE=2017  # 1009, 2017, 4033, 8129
+UE5_EXPORT_WEIGHTMAPS=true
+
+# Unity
+UNITY_DEFAULT_TERRAIN_SIZE=2049  # 513, 1025, 2049, 4097
+UNITY_EXPORT_SPLATMAPS=true
 ```
 
 ### 📦 Core Technologies
 
 **Backend:**
 - FastAPI - Modern async web framework
-- osmnx - OpenStreetMap data extraction
-- GeoPandas - Geospatial data processing
-- Ollama Python SDK - AI model integration
-- Rasterio - Raster data I/O
-- Pillow - Image processing
-- NumPy/SciPy - Numerical computing
+- Rasterio - Geospatial raster I/O
+- GeoPandas - Vector data processing
+- SentinelHub - Satellite imagery API
+- Trimesh - 3D mesh processing
+- PyGLTF - GLTF export
 
 **Frontend:**
-- Leaflet - Interactive maps with multiple basemap layers
-- Leaflet.draw - Advanced drawing tools (rectangle, polygon, circle)
-- Nominatim - Location search API
-- Modern CSS (Glassmorphism, animations)
-- Vanilla JavaScript ES6+
+- React 18 + TypeScript
+- React-Leaflet - Map interface
+- CesiumJS - 3D terrain visualization
+- Tailwind CSS - Modern styling
+- Vite - Fast build tool
 
 **Infrastructure:**
-- Docker & Docker Compose - Containerization
-- Nginx - Web server and reverse proxy
-- Poetry - Python dependency management
+- Poetry - Python dependencies
+- Docker - Optional containerization
 
-**AI Models:**
-- Qwen3-VL:235B-Cloud - Image analysis
-- Qwen3-Coder:480B-Cloud - Code generation and recommendations
+### 🗺️ Data Sources Comparison
 
-### 🐛 Known Issues
-
-- **Large areas**: Processing areas >50 km² may require significant memory
-- **First-time data**: Downloading SRTM data can be slow (cached afterwards)
-- **OSM rate limits**: Very frequent requests may be rate-limited
-- **Ollama offline**: AI features unavailable without Ollama
+| Source | Resolution | Coverage | Requires API Key | Free Tier |
+|--------|-----------|----------|------------------|-----------|
+| **SRTM** | 30m-90m | Global | ❌ No | ✅ Unlimited |
+| **Sentinel Hub** | 10m-60m | Global | ✅ Yes | 🟡 Limited |
+| **OpenTopography** | 0.5m-30m | Regional (LiDAR) | ✅ Yes | ✅ Generous |
+| **Azure Maps** | Varies | Global | ✅ Yes | 🟡 Limited |
+| **OpenStreetMap** | Vector | Global | ❌ No | ✅ Unlimited |
 
 ### 📝 Roadmap
 
 **Completed ✅:**
-- ✅ Real satellite imagery download and analysis (OSM, Mapbox, Bing Maps)
-- ✅ Advanced AI vision analysis (road width, lanes, markings, building heights)
-- ✅ AI-optimized traffic route generation with BeamNG integration
-- ✅ Support for custom object prefabs (.jbeam, .fbx, .obj, .gltf)
-- ✅ Export to Unreal Engine 5 and Unity
-- ✅ Map preview generation with statistics
-- ✅ Batch processing for multiple areas
-- ✅ Incremental updates to existing maps
-- ✅ One-click .zip mod packaging
-- ✅ Modern glassmorphism UI with advanced map controls
+- ✅ Multi-source geospatial data integration
+- ✅ Unreal Engine 5 export (heightmaps, weightmaps, splines)
+- ✅ Unity export (terrain, splatmaps, prefabs)
+- ✅ Generic export (GLTF, GeoTIFF, OBJ)
+- ✅ Modern React + TypeScript frontend
 
 **In Progress 🚧:**
-- 🚧 3D map preview rendering
-- 🚧 Road texture generation based on AI analysis
-- 🚧 Procedural building mesh generation
+- 🚧 CesiumJS 3D preview integration
+- 🚧 Material classification using AI/ML
+- 🚧 Procedural road mesh generation
 
 **Planned 📋:**
-- 📋 Real-time collaborative map editing
-- 📋 Cloud-based generation (no local Ollama needed)
-- 📋 BeamNG.drive lua script generation for dynamic events
-- 📋 Integration with more data sources (Google Earth Engine, Mapbox)
-- 📋 Advanced vegetation placement with ecosystem simulation
-- 📋 Water body detection and generation (rivers, lakes)
-- 📋 Procedural city generation for empty areas
-- 📋 Support for other games (Assetto Corsa, rFactor 2)
+- 📋 Unreal Engine 5 plugin (one-click import)
+- 📋 Unity package (AssetStore-ready)
+- 📋 Real-time collaborative editing
+- 📋 Cloud-based processing (serverless)
+- 📋 Water body detection and generation
+- 📋 Procedural city generation
+- 📋 Support for Godot Engine, O3DE
 
 ### 🤝 Contributing
 
-Contributions are welcome! Please check [CONTRIBUTING.md](docs/CONTRIBUTING.md) for guidelines.
+Contributions are welcome! See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for guidelines.
 
 ### 📄 License
 
-This project is licensed under the **MIT License** - see [LICENSE](LICENSE) file.
+MIT License - see [LICENSE](LICENSE) file.
 
 ### 🙏 Acknowledgments
 
 - Inspired by [unrealheightmap](https://github.com/manticorp/unrealheightmap)
 - Built with [osmnx](https://github.com/gboeing/osmnx) by Geoff Boeing
-- Powered by [Ollama](https://ollama.ai) and Qwen models
 - Map data © [OpenStreetMap](https://www.openstreetmap.org) contributors
+- Powered by Sentinel Hub, OpenTopography, and Azure Maps APIs
 
 ---
 
@@ -315,318 +349,83 @@ This project is licensed under the **MIT License** - see [LICENSE](LICENSE) file
 
 ## 🇷🇺 Русская версия
 
-**ИИ-генератор карт реального мира для BeamNG.drive**
+**Профессиональный кроссплатформенный генератор 3D-ландшафтов реального мира**
 
-Полноценный инструмент для генерации детализированных и функциональных карт реальных локаций для BeamNG.drive. Автоматически создает дороги, светофоры, парковки, здания и растительность на основе анализа данных OpenStreetMap и ИИ-моделей Qwen через Ollama.
+Комплексный инструмент для генерации детализированного реального рельефа для **Unreal Engine 5**, **Unity** и других игровых движков. Автоматически создаёт карты высот, дороги, здания и растительность на основе передовых геопространственных источников данных: Sentinel Hub, OpenTopography, Azure Maps и OpenStreetMap.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
-[![Docker](https://img.shields.io/badge/docker-ready-brightgreen.svg)](https://www.docker.com/)
 
 ### ✨ Основные возможности
 
-**🤖 Продвинутый ИИ-анализ:**
-- 🛰️ **Анализ спутниковых снимков** - Загрузка и анализ реальных снимков (OSM, Mapbox, Bing Maps)
-- 🔍 **Детальное распознавание дорог** - ИИ извлекает ширину, количество полос, разметку, тип покрытия
-- 🏗️ **Анализ зданий** - Точные границы, высота по теням, типы крыш, материалы
-- 🌳 **Классификация поверхностей** - Определение дорог, растительности, водоёмов, грунта
-- 🚗 **ИИ-оптимизация трафика** - Qwen3-Coder генерирует маршруты и поведение водителей
+**🌐 Продвинутые геопространственные источники:**
+- 🛰️ **Sentinel Hub** - Спутниковые снимки высокого разрешения (RGB, NIR, NDVI, временные ряды)
+- 🏔️ **OpenTopography** - Высокоточные DEM/DSM из LiDAR, SRTM, ASTER
+- 🗺️ **Azure Maps** - Векторные данные, маршрутизация, POI, высоты
+- 🌍 **Google Earth Engine** - Массивные геопространственные вычисления, индексы растительности
+- 📍 **OpenStreetMap** - Дороги, здания, землепользование (векторные данные)
 
 **🎮 Мульти-движковый экспорт:**
-- 🏁 **BeamNG.drive** - Полные пакеты модов с интеграцией трафика
-- 🎨 **Unreal Engine 5** - Heightmap ландшафтов, сплайны дорог, размещение статичных мешей
-- 🎯 **Unity** - Данные террейна, инстанцирование GameObject, генерация мешей
-- 📦 **Упаковка в один клик** - Автоматически создаёт .zip моды готовые к установке
+- 🎨 **Unreal Engine 5**
+  - 16-битные PNG/RAW карты высот (готовые для Landscape)
+  - Карты весов материалов (камень, трава, земля, песок)
+  - Сплайны дорог (совместимые с Data Layers)
+  - Instanced Static Meshes для зданий/деревьев
+- 🎯 **Unity**
+  - RAW 16-битные карты высот terrain
+  - Splatmaps для текстур terrain
+  - Префабы GameObject с мировыми координатами
+  - Поддержка Addressable Assets
+- 📦 **Универсальные форматы**
+  - GLTF/GLB - 3D-меши с текстурами
+  - GeoTIFF - Георефе�енцированные растровые данные
+  - OBJ - Универсальный 3D-формат
+  - USDZ - Формат Apple AR
+  - JSON метаданные (координаты, CRS, масштаб)
 
-**🗺️ Продвинутое картографирование:**
-- 🌍 **Данные реального мира** - Извлечение из OpenStreetMap для любой точки мира
-- 🏔️ **Данные высот** - Генерация heightmap на основе SRTM
-- 🛣️ **Умные дорожные сети** - Автоматические типы дорог, полосы, материалы, ширина
-- 🚦 **Дорожная инфраструктура** - Светофоры, парковки, точки спауна, ИИ-поведение
-- 🏢 **Размещение зданий** - Информация о высоте, типах, поддержка пользовательских префабов
-- 🎨 **Пользовательские префабы** - Импорт своих 3D-моделей (.jbeam, .fbx, .obj, .gltf)
+**🎨 Интерактивное 3D-превью:**
+- 🌐 **Интеграция CesiumJS** - 3D-визуализация рельефа в реальном времени
+- 🗺️ **Наложение спутниковых снимков** - Текстуры на рельефе
+- 🏗️ **Экструзия зданий** - 3D-визуализация построек
+- 🔄 **Переключение 2D/3D** - Смена видов карты
+- 📸 **Экспорт превью** - Генерация скриншотов/видео
 
-**⚡ Производительность и рабочий процесс:**
-- 🔄 **Инкрементальные обновления** - Обновление только изменённых частей карт
-- 📊 **Пакетная обработка** - Генерация нескольких карт параллельно
+**⚡ Профессиональный рабочий процесс:**
+- 🔄 **Инкрементальные обновления** - Обновление только изменённых регионов
+- 📊 **Пакетная обработка** - Генерация нескольких terrain параллельно
 - 🖼️ **Превью карт** - Визуальные наложения со статистикой
-- 💾 **Умное кэширование** - Кэширование снимков и данных OSM
+- 💾 **Умное кэширование** - Эффективное переиспользование данных
+- 🌍 **Поддержка Multi-CRS** - WGS84, UTM, пользовательские проекции
 
 **🌐 Современный веб-интерфейс:**
-- 🎨 **Glassmorphism UI** - Красивый современный дизайн с анимациями
-- 🔧 **Продвинутые инструменты выбора** - Прямоугольник, полигон, круг
-- 🔍 **Поиск локаций** - Поиск любого места в мире мгновенно
-- 🗺️ **Несколько базовых карт** - OSM, Humanitarian, спутниковые виды
-- 📍 **Координаты в реальном времени** - Позиция мыши и статистика области
-- 🐳 **Docker Ready** - Полная контейнеризация с Docker Compose
+- ⚛️ **React + TypeScript** - Профессиональный, отзывчивый UI
+- 🎨 **Современный дизайн** - Чистый, интуитивный интерфейс
+- 🗺️ **Продвинутые инструменты карты** - Полигон, прямоугольник, круг
+- 🔍 **Глобальный поиск** - Найти любое место в мире
+- 🌓 **Тёмная/светлая тема** - Настраиваемый внешний вид
+- 🌍 **Локализация** - Поддержка английского и русского
 
-### 🏗️ Архитектура
-
-```
-RealWorldMapGen-BNG/
-├── realworldmapgen/              # Основной Python-пакет
-│   ├── ai/                       # ИИ-интеграция (Ollama + Qwen модели)
-│   │   ├── ollama_client.py      # Клиент Ollama API
-│   │   └── terrain_analyzer.py   # Продвинутый анализ изображений
-│   ├── imagery/                  # Загрузчик спутниковых снимков
-│   ├── osm/                      # Извлечение данных OpenStreetMap
-│   ├── elevation/                # Генерация heightmap
-│   ├── traffic/                  # ИИ-генерация маршрутов трафика
-│   │   ├── traffic_generator.py  # Оптимизация маршрутов
-│   │   └── beamng_traffic.py     # Интеграция BeamNG
-│   ├── prefabs/                  # Управление пользовательскими префабами
-│   ├── preview/                  # Генератор превью карт
-│   ├── packaging/                # Упаковщик модов BeamNG
-│   ├── incremental/              # Инкрементальные обновления
-│   ├── exporters/                # Мульти-движковые экспортеры
-│   │   ├── beamng_exporter.py    # BeamNG.drive
-│   │   ├── unreal_exporter.py    # Unreal Engine 5
-│   │   └── unity_exporter.py     # Unity
-│   ├── api/                      # FastAPI REST API
-│   └── generator.py              # Главный оркестратор
-├── frontend/                     # Современный веб-интерфейс
-│   ├── index.html                # Разметка UI
-│   ├── style.css                 # Glassmorphism дизайн
-│   └── app.js                    # Продвинутые элементы управления картой
-├── docs/                         # Документация
-├── docker-compose.yml            # Docker оркестрация
-└── pyproject.toml                # Poetry зависимости
-```
+*(Остальной контент аналогичен английской версии)*
 
 ### 🚀 Быстрый старт
 
-#### Требования
-
-- **Docker & Docker Compose** (для бэкенда и фронтенда)
-- **Ollama** (локальная установка - скачать с https://ollama.ai)
-- **Python 3.13+** (для локальной разработки)
-- **Poetry** (для управления зависимостями)
-
-#### Установка
-
-**Windows (PowerShell):**
-```powershell
-git clone https://github.com/bobberdolle1/RealWorldMapGen-BNG.git
-cd RealWorldMapGen-BNG
-.\setup.ps1
-```
-
-**Linux/Mac:**
-```bash
-git clone https://github.com/bobberdolle1/RealWorldMapGen-BNG.git
-cd RealWorldMapGen-BNG
-chmod +x setup.sh
-./setup.sh
-```
-
-**Ручная установка:**
-```bash
-# 1. Создание файла конфигурации
-cp .env.example .env
-
-# 2. Установка и запуск Ollama
-# Скачайте с https://ollama.ai
-ollama serve
-
-# 3. Запуск Docker-контейнеров
-docker-compose up -d
-
-# 4. Доступ к приложению
-# Фронтенд: http://localhost:8080
-# API: http://localhost:8000
-# Документация API: http://localhost:8000/docs
-```
-
-### 📖 Использование
-
-#### Веб-интерфейс
-
-1. **Откройте** браузер: `http://localhost:8080`
-2. **Найдите** локацию (или навигируйте вручную на карте)
-3. **Выберите область** одним из трёх инструментов:
-   - 🔲 **Прямоугольник** - Кликните и тяните для создания прямоугольной области
-   - 🔺 **Полигон** - Кликайте точки для рисования произвольного полигона
-   - ⭕ **Круг** - Кликните и тяните для создания круглой области
-4. **Настройте** параметры генерации:
-   - Название карты (буквы, цифры, подчёркивания, дефисы)
-   - Формат экспорта (BeamNG.drive, Unreal Engine 5, Unity или все)
-   - Разрешение heightmap (1024/2048/4096)
-   - Включение/отключение функций (ИИ-анализ, дороги, трафик, здания, растительность)
-5. **Генерируйте** - Нажмите кнопку "🚀 Generate Map"
-6. **Скачивайте** - Получите .zip мод или отдельные файлы после завершения
-
-**Управление картой:**
-- 🔍 Поиск локаций с автодополнением
-- 📍 Отображение координат в реальном времени
-- 📐 Информация о выбранной области (границы + размер в км²)
-- 🗺️ Переключение между OSM, Humanitarian и спутниковыми видами
-- ❌ Очистка выбора или 🎯 Подгонка карты под выделение
-
-#### Пример использования API
-
-```bash
-curl -X POST "http://localhost:8000/api/generate" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "test_map",
-    "bbox": {
-      "north": 55.7558,
-      "south": 55.7508,
-      "east": 37.6173,
-      "west": 37.6123
-    },
-    "resolution": 2048,
-    "export_engine": "beamng",
-    "enable_ai_analysis": true,
-    "enable_roads": true,
-    "enable_traffic_lights": true,
-    "enable_parking": true,
-    "enable_buildings": true,
-    "enable_vegetation": true
-  }'
-```
-
-### 🎮 Импорт в BeamNG.drive
-
-**Простая установка (рекомендуется):**
-1. Скачайте `.zip` файл из веб-интерфейса
-2. Распакуйте в папку `<BeamNG.drive>/mods/`
-3. Запустите BeamNG.drive - ваша карта будет доступна автоматически!
-
-**Ручная установка:**
-1. Найдите сгенерированную карту в `output/<название_карты>/`
-2. Скопируйте всю папку в:
-   ```
-   <BeamNG.drive>/levels/<название_карты>/
-   ```
-3. Включённые файлы:
-   - `main.level.json` - Конфигурация уровня
-   - `<название_карты>_heightmap.png` - Heightmap террейна
-   - `roads.json` - Данные дорожной сети
-   - `objects.json` - Здания и растительность
-   - `traffic.json` - Система трафика (светофоры, парковки, точки спауна, ИИ-поведение)
-   - `info.json` - Метаданные карты
-4. Запустите BeamNG.drive и выберите вашу карту
-
-**Для Unreal Engine 5:**
-- Импортируйте `.raw` heightmap используя предоставленный Python скрипт
-- Загрузите сплайны дорог и JSON размещения статичных мешей
-- См. `docs/UNREAL_IMPORT.md` для деталей
-
-**Для Unity:**
-- Импортируйте `.raw` heightmap террейна
-- Используйте C# Editor скрипт для автоматической настройки
-- См. `docs/UNITY_IMPORT.md` для деталей
-
-### ⚙️ Конфигурация
-
-Отредактируйте файл `.env` для настройки:
-
-```env
-# Настройки Ollama
-OLLAMA_HOST=http://localhost:11434
-OLLAMA_VISION_MODEL=qwen3-vl:235b-cloud
-OLLAMA_CODER_MODEL=qwen3-coder:480b-cloud
-
-# Настройки генерации карт
-DEFAULT_RESOLUTION=2048
-MAX_AREA_KM2=100.0
-
-# Настройки обработки
-ENABLE_AI_ANALYSIS=true
-PARALLEL_PROCESSING=true
-MAX_WORKERS=4
-```
-
-### 📦 Основные технологии
-
-**Backend:**
-- FastAPI - Современный асинхронный веб-фреймворк
-- osmnx - Извлечение данных OpenStreetMap
-- GeoPandas - Обработка геопространственных данных
-- Ollama Python SDK - Интеграция с ИИ-моделями
-- Rasterio - Работа с растровыми данными
-- Pillow - Обработка изображений
-- NumPy/SciPy - Численные вычисления
-
-**Frontend:**
-- Leaflet - Интерактивные карты с несколькими базовыми слоями
-- Leaflet.draw - Продвинутые инструменты рисования (прямоугольник, полигон, круг)
-- Nominatim - API поиска локаций
-- Modern CSS (Glassmorphism, анимации)
-- Vanilla JavaScript ES6+
-
-**Инфраструктура:**
-- Docker & Docker Compose - Контейнеризация
-- Nginx - Веб-сервер и reverse proxy
-- Poetry - Управление зависимостями Python
-
-**ИИ-модели:**
-- Qwen3-VL:235B-Cloud - Анализ изображений
-- Qwen3-Coder:480B-Cloud - Генерация кода и рекомендаций
-
-### 🐛 Известные проблемы
-
-- **Большие области**: Обработка областей >50 км² требует значительной памяти
-- **Первая загрузка**: Скачивание SRTM данных может занять время (затем кэшируется)
-- **Лимиты OSM**: Частые запросы могут быть ограничены
-- **Ollama offline**: ИИ-функции недоступны без Ollama
-
-### 📝 Roadmap
-
-**Завершено ✅:**
-- ✅ Загрузка и анализ спутниковых снимков (OSM, Mapbox, Bing Maps)
-- ✅ Продвинутый ИИ-анализ (ширина дорог, полосы, разметка, высота зданий)
-- ✅ ИИ-оптимизированная генерация маршрутов трафика с интеграцией BeamNG
-- ✅ Поддержка пользовательских префабов (.jbeam, .fbx, .obj, .gltf)
-- ✅ Экспорт в Unreal Engine 5 и Unity
-- ✅ Генерация превью карт со статистикой
-- ✅ Пакетная обработка нескольких областей
-- ✅ Инкрементальные обновления существующих карт
-- ✅ Упаковка .zip модов в один клик
-- ✅ Современный glassmorphism UI с продвинутыми элементами управления картой
-
-**В разработке 🚧:**
-- 🚧 3D рендеринг превью карт
-- 🚧 Генерация текстур дорог на основе ИИ-анализа
-- 🚧 Процедурная генерация мешей зданий
-
-**Запланировано 📋:**
-- 📋 Совместное редактирование карт в реальном времени
-- 📋 Облачная генерация (без локального Ollama)
-- 📋 Генерация lua скриптов BeamNG.drive для динамических событий
-- 📋 Интеграция с дополнительными источниками данных (Google Earth Engine, Mapbox)
-- 📋 Продвинутое размещение растительности с симуляцией экосистем
-- 📋 Обнаружение и генерация водных объектов (реки, озёра)
-- 📋 Процедурная генерация городов для пустых областей
-- 📋 Поддержка других игр (Assetto Corsa, rFactor 2)
-
-### 🤝 Участие в разработке
-
-Мы приветствуем вклад сообщества! Пожалуйста, ознакомьтесь с [CONTRIBUTING.md](docs/CONTRIBUTING.md).
+См. английскую версию выше для инструкций по установке.
 
 ### 📄 Лицензия
 
-Этот проект распространяется под лицензией **MIT License** - см. файл [LICENSE](LICENSE).
-
-### 🙏 Благодарности
-
-- Вдохновлено проектом [unrealheightmap](https://github.com/manticorp/unrealheightmap)
-- Создано с использованием [osmnx](https://github.com/gboeing/osmnx) от Geoff Boeing
-- Работает на [Ollama](https://ollama.ai) и моделях Qwen
-- Данные карт © участники [OpenStreetMap](https://www.openstreetmap.org)
+Лицензия MIT - см. файл [LICENSE](LICENSE).
 
 ---
 
 <div align="center">
 
-**Made with ❤️ for the BeamNG.drive community**
+**Created with ❤️ for the game development community**
 
 ⭐ **If you like this project, give it a star on GitHub!** ⭐
 
-[🌟 Star on GitHub](https://github.com/bobberdolle1/RealWorldMapGen-BNG) | 
+[🌟 Star on GitHub](https://github.com/yourusername/TerraForge-Studio) | 
 [📖 Documentation](docs/) | 
-[🐛 Report Bug](https://github.com/bobberdolle1/RealWorldMapGen-BNG/issues) | 
-[💡 Request Feature](https://github.com/bobberdolle1/RealWorldMapGen-BNG/issues)
+[🐛 Report Bug](https://github.com/yourusername/TerraForge-Studio/issues) | 
+[💡 Request Feature](https://github.com/yourusername/TerraForge-Studio/issues)
 
 </div>

@@ -1,263 +1,388 @@
-# 🚀 Быстрый старт RealWorldMapGen-BNG
+# 🚀 TerraForge Studio - Quick Start Guide
 
-## ⚡ Быстрая установка и запуск
+## ⚡ Quick Installation
 
-### Вариант 1: Запуск через Docker (Рекомендуется)
+### Windows (PowerShell)
+
+```powershell
+# 1. Clone repository
+git clone https://github.com/yourusername/TerraForge-Studio.git
+cd TerraForge-Studio
+
+# 2. Application management
+.\run.ps1          # Start (auto-install)
+.\run.ps1 stop     # Stop
+.\run.ps1 restart  # Restart
+.\run.ps1 status   # Check status
+```
+
+### Linux/Mac
 
 ```bash
-# 1. Клонируйте репозиторий
-git clone https://github.com/bobberdolle1/RealWorldMapGen-BNG.git
-cd RealWorldMapGen-BNG
+# 1. Clone repository
+git clone https://github.com/yourusername/TerraForge-Studio.git
+cd TerraForge-Studio
 
-# 2. Создайте файл .env (ВАЖНО!)
-# На Windows:
-copy .env.example .env
-# На Linux/Mac:
+# 2. Application management
+chmod +x run.sh
+./run.sh          # Start (auto-install)
+./run.sh stop     # Stop
+./run.sh restart  # Restart
+./run.sh status   # Check status
+```
+
+## 📋 Prerequisites
+
+**Required:**
+- **Python 3.13+** - [Download](https://www.python.org/downloads/)
+- **Node.js 18+** - [Download](https://nodejs.org/)
+
+**Optional (for advanced features):**
+- **Ollama** (AI terrain analysis) - [Download](https://ollama.ai)
+- **GDAL** (advanced geospatial processing)
+
+## 🔑 API Keys Setup
+
+TerraForge Studio works with free data sources (OpenStreetMap + SRTM) out of the box. For enhanced data quality, configure optional API keys:
+
+### 1. Copy environment file
+
+```bash
 cp .env.example .env
-
-# 3. Отредактируйте .env (укажите корректные модели Ollama)
-# Откройте .env в редакторе и измените:
-# OLLAMA_VISION_MODEL=llama3.2-vision
-# OLLAMA_CODER_MODEL=qwen2.5-coder
-
-# 4. Запустите Ollama (в отдельном терминале)
-ollama serve
-
-# 5. Скачайте модели Ollama
-ollama pull llama3.2-vision
-ollama pull qwen2.5-coder
-
-# 6. Запустите приложение через Docker
-docker-compose up --build
-
-# 7. Откройте браузер
-# Frontend: http://localhost:8080
-# API: http://localhost:8000/docs
 ```
 
-### Вариант 2: Локальная установка (без Docker)
+### 2. Add API keys (optional)
 
-```bash
-# 1. Установите зависимости системы
-# На Ubuntu/Debian:
-sudo apt-get update
-sudo apt-get install -y gdal-bin libgdal-dev libspatialindex-dev python3-pip
-
-# На Windows: установите OSGeo4W
-# https://trac.osgeo.org/osgeo4w/
-
-# 2. Установите Poetry
-curl -sSL https://install.python-poetry.org | python3 -
-# Или на Windows:
-# (Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | py -
-
-# 3. Установите зависимости Python
-poetry install
-
-# 4. Создайте .env файл
-copy .env.example .env  # Windows
-cp .env.example .env    # Linux/Mac
-
-# 5. Запустите Ollama
-ollama serve
-
-# 6. Скачайте модели
-ollama pull llama3.2-vision
-ollama pull qwen2.5-coder
-
-# 7. Запустите backend
-poetry run uvicorn realworldmapgen.api.main:app --reload --host 0.0.0.0 --port 8000
-
-# 8. В отдельном терминале запустите frontend
-cd frontend
-python -m http.server 8080
-# Или используйте любой другой HTTP сервер
-
-# 9. Откройте браузер
-# Frontend: http://localhost:8080
-# API: http://localhost:8000/docs
-```
-
-## 📋 Содержимое .env файла
-
-Создайте файл `.env` в корне проекта со следующим содержимым:
+Edit `.env` file:
 
 ```env
-# Ollama Configuration
-OLLAMA_HOST=http://localhost:11434
-OLLAMA_VISION_MODEL=llama3.2-vision
-OLLAMA_CODER_MODEL=qwen2.5-coder
-OLLAMA_TIMEOUT=300
+# Sentinel Hub (Satellite Imagery)
+# Sign up: https://www.sentinel-hub.com/
+SENTINELHUB_CLIENT_ID=your_client_id
+SENTINELHUB_CLIENT_SECRET=your_secret
+SENTINELHUB_ENABLED=true
 
-# Output Configuration
-OUTPUT_DIR=output
-CACHE_DIR=cache
+# OpenTopography (High-res DEMs)
+# Sign up: https://opentopography.org/
+OPENTOPOGRAPHY_API_KEY=your_api_key
+OPENTOPOGRAPHY_ENABLED=true
 
-# Map Generation Settings
-DEFAULT_RESOLUTION=2048
-DEFAULT_SCALE=1.0
-MAX_AREA_KM2=100.0
+# Azure Maps (Vector data)
+# Sign up: https://azure.microsoft.com/services/azure-maps/
+AZURE_MAPS_SUBSCRIPTION_KEY=your_key
+AZURE_MAPS_ENABLED=true
 
-# OSM Settings
-OSM_CACHE_ENABLED=true
-OSM_TIMEOUT=180
+# Google Earth Engine (Advanced analysis)
+# Setup: https://developers.google.com/earth-engine/
+GOOGLE_EARTH_ENGINE_ENABLED=false  # Requires service account
+```
 
-# Elevation Data
-ELEVATION_SOURCE=SRTM3
+**Note:** All API keys are optional. The system will automatically fallback to free OpenStreetMap + SRTM data if premium sources are unavailable.
 
-# BeamNG.drive Export Settings
-BEAMNG_TERRAIN_SIZE=2048
-BEAMNG_HEIGHT_SCALE=1.0
+## 🎮 First Terrain Generation
 
-# Processing Settings
-ENABLE_AI_ANALYSIS=true
-ENABLE_SATELLITE_IMAGERY=true
+### Step 1: Start Application
+
+```bash
+# Backend + Frontend will start automatically
+./run.sh  # or .\run.ps1 on Windows
+```
+
+Access:
+- **Frontend:** http://localhost:3000
+- **API:** http://localhost:8000
+- **API Docs:** http://localhost:8000/docs
+
+### Step 2: Select Area
+
+1. Open http://localhost:3000
+2. Use search bar to find a location (e.g., "Grand Canyon")
+3. Select drawing tool:
+   - 🔲 **Rectangle** - Click and drag
+   - 🔺 **Polygon** - Click points to draw shape
+   - ⭕ **Circle** - Click center and drag radius
+
+### Step 3: Configure Export
+
+Choose your target game engine:
+
+**For Unreal Engine 5:**
+```
+Engine: Unreal Engine 5
+Resolution: 2017 (recommended for UE5)
+Format: 16-bit PNG
+Export weightmaps: ✅ Yes
+Export splines: ✅ Yes
+```
+
+**For Unity:**
+```
+Engine: Unity
+Resolution: 2049 (recommended for Unity)
+Format: RAW 16-bit
+Export splatmaps: ✅ Yes
+Export prefabs: ✅ Yes
+```
+
+**For Generic/Other:**
+```
+Engine: Generic
+Format: GLTF + GeoTIFF
+Resolution: 2048
+```
+
+### Step 4: Generate
+
+1. Click **"🚀 Generate Terrain"**
+2. View progress in real-time
+3. Preview in 3D viewer (if enabled)
+4. Download ZIP package when complete
+
+## 📥 Importing to Game Engines
+
+### Unreal Engine 5
+
+1. Extract downloaded ZIP to `YourProject/Content/Terrains/`
+2. In Unreal Editor:
+   ```
+   Landscape Mode → Import from File
+   → Select heightmap_16bit.png
+   → Section Size: 127x127
+   → Sections Per Component: 1
+   → Number of Components: 16x16 (for 2017x2017)
+   ```
+3. Apply material weightmaps:
+   ```
+   Landscape Material → Weight Blended Layers
+   → Import weightmap_R.png (Rock)
+   → Import weightmap_G.png (Grass)
+   → Import weightmap_B.png (Dirt)
+   → Import weightmap_A.png (Sand)
+   ```
+4. (Optional) Run Python import script for automatic setup:
+   ```python
+   # In UE5 Python console
+   import unreal_import_terraforge
+   unreal_import_terraforge.import_all("Content/Terrains/your_terrain")
+   ```
+
+**Detailed guide:** [docs/UNREAL_IMPORT.md](docs/UNREAL_IMPORT.md)
+
+### Unity
+
+1. Extract downloaded ZIP to `Assets/Terrains/`
+2. In Unity Editor:
+   ```
+   GameObject → 3D Object → Terrain
+   → Terrain Settings → Import Raw
+   → Select heightmap.raw
+   → Depth: 16 bit
+   → Resolution: 2049x2049
+   → Terrain Width/Length: 2048m (from metadata.json)
+   → Terrain Height: 600m (from metadata.json)
+   ```
+3. Apply splatmaps:
+   ```
+   Terrain → Paint Texture → Edit Terrain Layers
+   → Import splatmap.png channels to texture layers
+   ```
+4. (Optional) Run Editor script for automatic setup:
+   ```csharp
+   // Unity Editor
+   Tools → TerraForge → Import Terrain Package
+   // Select the extracted folder
+   ```
+
+**Detailed guide:** [docs/UNITY_IMPORT.md](docs/UNITY_IMPORT.md)
+
+### Other Software (GLTF/GeoTIFF)
+
+- **Blender:** File → Import → GLTF (.gltf/.glb)
+- **QGIS:** Layer → Add Layer → Add Raster Layer (.tif)
+- **ArcGIS:** Add Data → GeoTIFF (.tif)
+- **Three.js/Babylon.js:** Load GLTF using standard loaders
+
+## 🔧 Advanced Configuration
+
+### Terrain Quality
+
+Edit `.env`:
+
+```env
+# High Quality (slower, larger files)
+DEFAULT_HEIGHTMAP_RESOLUTION=4096
+ELEVATION_SOURCE_PRIORITY=opentopography,srtm
+
+# Balanced (recommended)
+DEFAULT_HEIGHTMAP_RESOLUTION=2048
+ELEVATION_SOURCE_PRIORITY=srtm,aster
+
+# Fast (quick previews)
+DEFAULT_HEIGHTMAP_RESOLUTION=1024
+ELEVATION_SOURCE_PRIORITY=srtm
+```
+
+### Export Options
+
+```env
+# Unreal Engine 5
+UE5_DEFAULT_LANDSCAPE_SIZE=2017  # 1009, 2017, 4033, 8129
+UE5_EXPORT_WEIGHTMAPS=true
+UE5_EXPORT_SPLINES=true
+
+# Unity
+UNITY_DEFAULT_TERRAIN_SIZE=2049  # 513, 1025, 2049, 4097
+UNITY_EXPORT_SPLATMAPS=true
+UNITY_EXPORT_TREES=true
+
+# Generic
+GENERIC_EXPORT_GLTF=true
+GENERIC_EXPORT_GEOTIFF=true
+```
+
+### Performance
+
+```env
+# CPU Usage
 PARALLEL_PROCESSING=true
-MAX_WORKERS=4
+MAX_WORKERS=4  # Number of CPU cores
+
+# Memory
+CHUNK_SIZE=1024  # Reduce if running out of memory
+
+# Caching
+ENABLE_CACHE=true
+CACHE_EXPIRY_DAYS=30
 ```
 
-## 🎮 Использование
+## ❌ Troubleshooting
 
-### 1. Выберите область на карте
-
-- Откройте http://localhost:8080
-- Используйте поиск для поиска локации
-- Выберите инструмент (прямоугольник, полигон или круг)
-- Нарисуйте область на карте
-
-### 2. Настройте параметры
-
-- Введите имя карты (только буквы, цифры, _ и -)
-- Выберите разрешение heightmap
-- Выберите формат экспорта
-- Включите/выключите нужные опции
-
-### 3. Сгенерируйте карту
-
-- Нажмите "🚀 Generate Map"
-- Дождитесь завершения (прогресс показывается в реальном времени)
-- Скачайте готовый .zip мод для BeamNG.drive
-
-### 4. Установите в BeamNG.drive
-
-- Распакуйте скачанный .zip файл
-- Скопируйте папку карты в: `BeamNG.drive/mods/`
-- Запустите BeamNG.drive
-- Ваша карта будет доступна в списке уровней!
-
-## ❌ Решение проблем
-
-### Ollama не подключается
+### Backend doesn't start
 
 ```bash
-# Проверьте что Ollama запущен
-curl http://localhost:11434/api/tags
+# Check Python version (must be 3.13+)
+python --version
 
-# Проверьте модели
-ollama list
+# Reinstall dependencies
+poetry install --no-cache
 
-# Перезапустите Ollama
-# Windows: перезапустите сервис Ollama
-# Linux/Mac:
-killall ollama
-ollama serve
+# Check if port 8000 is available
+# Windows: netstat -ano | findstr :8000
+# Linux/Mac: lsof -i :8000
 ```
 
-### Backend не запускается
+### Frontend doesn't start
 
 ```bash
-# Проверьте что .env файл создан
+# Check Node.js version (must be 18+)
+node --version
+
+# Clear cache and reinstall
+cd frontend
+rm -rf node_modules package-lock.json
+npm install
+```
+
+### API keys not working
+
+```bash
+# Verify .env file exists
 ls -la .env  # Linux/Mac
 dir .env     # Windows
 
-# Проверьте Python версию (должна быть 3.13+)
-python --version
-
-# Переустановите зависимости
-poetry install --no-cache
+# Check API key format (no quotes, no spaces)
+# ✅ Correct: SENTINELHUB_CLIENT_ID=abc123
+# ❌ Wrong: SENTINELHUB_CLIENT_ID="abc123"
+# ❌ Wrong: SENTINELHUB_CLIENT_ID = abc123
 ```
 
-### OSM запросы падают с ошибкой
+### Out of memory errors
 
-```bash
-# Увеличьте таймауты в .env
-OSM_TIMEOUT=300
+```env
+# Reduce resolution
+DEFAULT_HEIGHTMAP_RESOLUTION=1024
 
-# Уменьшите размер области
-# Максимум 100 км² по умолчанию
+# Reduce chunk size
+CHUNK_SIZE=512
+
+# Disable parallel processing
+PARALLEL_PROCESSING=false
 ```
 
-### Модели Ollama не найдены
+### Slow generation
 
-```bash
-# Используйте доступные модели
-ollama list
+```env
+# Enable caching
+ENABLE_CACHE=true
 
-# Обновите .env с корректными именами
-# Например:
-OLLAMA_VISION_MODEL=llava
-OLLAMA_CODER_MODEL=codellama
+# Use faster elevation source
+ELEVATION_SOURCE_PRIORITY=srtm
+
+# Reduce area size
+MAX_AREA_KM2=25.0
 ```
 
-## 📚 Дополнительная информация
+## 📚 Additional Resources
 
-- **Документация API**: http://localhost:8000/docs
-- **GitHub**: https://github.com/bobberdolle1/RealWorldMapGen-BNG
-- **Проблемы**: https://github.com/bobberdolle1/RealWorldMapGen-BNG/issues
+- **Full Documentation:** [docs/README.md](docs/README.md)
+- **API Reference:** [docs/API_EXAMPLES.md](docs/API_EXAMPLES.md)
+- **Contributing:** [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)
+- **API Playground:** http://localhost:8000/docs (when running)
 
-## 🔧 Разработка
+## 🆘 Getting Help
 
-```bash
-# Запуск тестов
-poetry run pytest
+- **Issues:** [GitHub Issues](https://github.com/yourusername/TerraForge-Studio/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/yourusername/TerraForge-Studio/discussions)
 
-# Форматирование кода
-poetry run black .
-poetry run ruff check .
+## 🎯 Quick Examples
 
-# Проверка типов
-poetry run mypy realworldmapgen
-```
-
-## 📝 Примеры API запросов
-
-### Генерация карты через API
+### Example 1: Mountain Terrain for UE5
 
 ```bash
 curl -X POST "http://localhost:8000/api/generate" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "moscow_center",
-    "bbox": {
-      "north": 55.7558,
-      "south": 55.7508,
-      "east": 37.6173,
-      "west": 37.6123
-    },
-    "resolution": 2048,
-    "export_engine": "beamng",
-    "enable_ai_analysis": true,
+    "name": "swiss_alps",
+    "bbox": {"north": 46.5, "south": 46.4, "east": 8.0, "west": 7.9},
+    "resolution": 4033,
+    "export_formats": ["unreal5"],
+    "elevation_source": "opentopography",
     "enable_roads": true,
-    "enable_traffic_lights": true,
-    "enable_parking": true,
+    "enable_buildings": false,
+    "enable_vegetation": true
+  }'
+```
+
+### Example 2: Urban Area for Unity
+
+```bash
+curl -X POST "http://localhost:8000/api/generate" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "city_downtown",
+    "bbox": {"north": 40.76, "south": 40.75, "east": -73.98, "west": -73.99},
+    "resolution": 2049,
+    "export_formats": ["unity"],
+    "enable_roads": true,
     "enable_buildings": true,
     "enable_vegetation": true
   }'
 ```
 
-### Проверка статуса генерации
+### Example 3: Island for Generic Export
 
 ```bash
-curl "http://localhost:8000/api/status/{task_id}"
-```
-
-### Скачивание карты
-
-```bash
-curl "http://localhost:8000/api/maps/{map_name}/download/zip" -o map.zip
+curl -X POST "http://localhost:8000/api/generate" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "tropical_island",
+    "bbox": {"north": -17.5, "south": -17.6, "east": -149.8, "west": -149.9},
+    "resolution": 2048,
+    "export_formats": ["gltf", "geotiff"],
+    "enable_water_bodies": true
+  }'
 ```
 
 ---
 
-**Наслаждайтесь созданием реалистичных карт! 🎮🗺️**
-
+**Enjoy creating realistic terrains! 🌍🎮**

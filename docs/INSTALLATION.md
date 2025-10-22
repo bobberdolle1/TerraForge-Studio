@@ -5,7 +5,8 @@ Complete installation guide for RealWorldMapGen-BNG.
 ## Prerequisites
 
 ### Required
-- **Docker Desktop** (Windows/Mac) or **Docker + Docker Compose** (Linux)
+- **Python 3.13+** - Programming language runtime
+- **Poetry** - Python dependency management
 - **Ollama** - AI model runtime (install locally)
 - **Git** - For cloning repository
 
@@ -24,16 +25,11 @@ Complete installation guide for RealWorldMapGen-BNG.
 git clone https://github.com/bobberdolle1/RealWorldMapGen-BNG.git
 cd RealWorldMapGen-BNG
 
-# 2. Run setup script
-.\setup.ps1
+# 2. Run the application (automatically installs dependencies)
+.\run.ps1        # Start
+.\run.ps1 stop   # Stop
+.\run.ps1 status # Check status
 ```
-
-The script will:
-- ✅ Check Docker installation
-- ✅ Create `.env` configuration
-- ✅ Check for Ollama
-- ✅ Start Docker containers
-- ✅ Verify services are running
 
 ### Linux/Mac
 
@@ -42,10 +38,21 @@ The script will:
 git clone https://github.com/bobberdolle1/RealWorldMapGen-BNG.git
 cd RealWorldMapGen-BNG
 
-# 2. Run setup script
-chmod +x setup.sh
-./setup.sh
+# 2. Run the application (automatically installs dependencies)
+chmod +x run.sh
+./run.sh         # Start
+./run.sh stop    # Stop
+./run.sh status  # Check status
 ```
+
+**What the script does automatically:**
+- ✅ Checks Python and Poetry installation
+- ✅ Installs Poetry if needed (requires terminal restart)
+- ✅ Creates `.env` configuration from template
+- ✅ Creates output and cache directories
+- ✅ Installs Python dependencies
+- ✅ Checks for Ollama
+- ✅ Starts backend and frontend services
 
 ---
 
@@ -106,26 +113,38 @@ MAPBOX_ACCESS_TOKEN=your_token_here
 BING_MAPS_KEY=your_key_here
 ```
 
-### Step 4: Start Docker Services
+### Step 4: Install Dependencies
 
 ```bash
-# Build and start containers
-docker-compose up -d --build
+# Install project dependencies
+poetry install
+```
 
-# Check status
-docker-compose ps
+### Step 5: Start Services
 
-# View logs
-docker-compose logs -f
+**Terminal 1 - Backend API:**
+```bash
+poetry run uvicorn realworldmapgen.api.main:app --host 0.0.0.0 --port 8000
 ```
 
 You should see:
 ```
-backend    | Application startup complete.
-frontend   | Serving on port 8080
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000
 ```
 
-### Step 5: Verify Installation
+**Terminal 2 - Frontend:**
+```bash
+cd frontend
+python -m http.server 8080
+```
+
+You should see:
+```
+Serving HTTP on 0.0.0.0 port 8080
+```
+
+### Step 6: Verify Installation
 
 **Check services:**
 ```bash
@@ -171,44 +190,44 @@ ollama pull qwen3-coder:480b-cloud
    ollama serve
    ```
 
-2. Check connection (Windows with Docker):
-   - Ollama must be accessible at `http://host.docker.internal:11434`
-   - Check Windows Firewall settings
+2. Check connection:
+   - Ollama must be accessible at `http://localhost:11434`
+   - Check Firewall settings
 
 3. Test manually:
    ```bash
    curl http://localhost:11434/api/tags
    ```
 
-### Docker Build Fails
+### Poetry Installation Issues
 
-**Poetry errors:**
+**Poetry not found:**
 ```bash
-# Clear Docker cache
-docker-compose down
-docker system prune -a
-docker-compose up -d --build
+# Install Poetry
+curl -sSL https://install.python-poetry.org | python3 -
+
+# Or on Windows (PowerShell):
+(Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | python -
 ```
 
-**Network issues:**
+**Dependency conflicts:**
 ```bash
-# Check Docker network
-docker network ls
-docker network inspect realworldmapgen-bng_mapgen-network
+# Clear Poetry cache
+poetry cache clear pypi --all
+poetry install
 ```
 
 ### Port Already in Use
 
-**Change ports in `docker-compose.yml`:**
-```yaml
-services:
-  backend:
-    ports:
-      - "8001:8000"  # Use 8001 instead of 8000
-  
-  frontend:
-    ports:
-      - "8081:8080"  # Use 8081 instead of 8080
+**Change backend port:**
+```bash
+poetry run uvicorn realworldmapgen.api.main:app --host 0.0.0.0 --port 8001
+```
+
+**Change frontend port:**
+```bash
+cd frontend
+python -m http.server 8081
 ```
 
 ### OSM Extraction Errors
@@ -219,10 +238,7 @@ services:
 1. Check internet connection (OSM data download)
 2. Verify bbox coordinates are valid
 3. Reduce area size (< 100 km²)
-4. Check logs:
-   ```bash
-   docker-compose logs backend | grep ERROR
-   ```
+4. Check backend terminal output for errors
 
 ### Permission Errors (Linux)
 
@@ -236,24 +252,15 @@ sudo chmod -R 755 output/
 
 ## Development Setup
 
-### Run Without Docker
+### Enable Hot Reload
 
-**Prerequisites:**
-- Python 3.13+
-- Poetry
-
-**Setup:**
+**Backend with auto-reload:**
 ```bash
-# Install dependencies
-poetry install
-
-# Run backend
 poetry run uvicorn realworldmapgen.api.main:app --reload --host 0.0.0.0 --port 8000
-
-# In another terminal, serve frontend
-cd frontend
-python -m http.server 8080
 ```
+
+**Frontend:**
+For frontend changes, just refresh the browser - no build step needed.
 
 ### Run Tests
 
@@ -274,8 +281,9 @@ poetry update
 # Update specific package
 poetry update osmnx
 
-# Rebuild Docker
-docker-compose up -d --build
+# Restart the backend after updates
+# Stop with Ctrl+C and run again:
+poetry run uvicorn realworldmapgen.api.main:app --host 0.0.0.0 --port 8000
 ```
 
 ---
@@ -295,22 +303,6 @@ docker-compose up -d --build
 | `PARALLEL_PROCESSING` | `true` | Enable parallel processing |
 | `MAX_WORKERS` | `4` | Number of parallel workers |
 
-### Docker Compose Override
-
-Create `docker-compose.override.yml` for custom settings:
-
-```yaml
-version: '3.8'
-
-services:
-  backend:
-    environment:
-      - MAX_AREA_KM2=200.0
-      - DEFAULT_RESOLUTION=4096
-    volumes:
-      - /path/to/custom/output:/app/output
-```
-
 ---
 
 ## Updating
@@ -321,9 +313,11 @@ services:
 # Get updates
 git pull origin main
 
-# Rebuild containers
-docker-compose down
-docker-compose up -d --build
+# Update dependencies
+poetry install
+
+# Restart services
+# Stop with Ctrl+C in both terminals and start again
 ```
 
 ### Database/Cache Reset
@@ -333,8 +327,7 @@ docker-compose up -d --build
 rm -rf cache/*
 rm -rf output/*
 
-# Restart services
-docker-compose restart
+# Restart services (stop with Ctrl+C and start again)
 ```
 
 ---
@@ -342,19 +335,17 @@ docker-compose restart
 ## Uninstallation
 
 ```bash
-# Stop and remove containers
-docker-compose down
-
-# Remove volumes (optional - deletes cached data)
-docker-compose down -v
-
-# Remove images (optional)
-docker rmi realworldmapgen-bng-backend realworldmapgen-bng-frontend
+# Remove project directory
+cd ..
+rm -rf RealWorldMapGen-BNG
 
 # Uninstall Ollama (optional)
 # Windows: Use "Add or Remove Programs"
 # Linux: Follow Ollama uninstall instructions
 # Mac: brew uninstall ollama
+
+# Remove Poetry environment (optional)
+poetry env remove python
 ```
 
 ---

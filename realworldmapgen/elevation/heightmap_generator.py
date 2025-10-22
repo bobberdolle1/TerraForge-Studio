@@ -7,9 +7,6 @@ from typing import Tuple, Optional
 from pathlib import Path
 import numpy as np
 from PIL import Image
-import rasterio
-from rasterio.warp import reproject, Resampling
-from rasterio.transform import from_bounds
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
@@ -74,33 +71,80 @@ class HeightmapGenerator:
             return output_path, flat_data
     
     async def _download_elevation_data(self, bbox: BoundingBox) -> np.ndarray:
-        """Download elevation data for the bounding box"""
-        # Use elevation package to download SRTM data
-        # This is a simplified implementation - in production, you'd use elevation.clip()
+        """Download real elevation data from Terrain RGB tiles"""
+        import httpx
+        import math
+        from io import BytesIO
         
-        # For now, create a synthetic elevation based on coordinates
-        # In real implementation, use: elevation.clip(bounds=(west, south, east, north))
-        logger.info("Downloading elevation data...")
+        logger.info("Downloading real elevation data from terrain tiles...")
         
-        # Simulate async download
-        await asyncio.sleep(0.1)
+        # Use zoom level 10 for good detail
+        zoom = 10
         
-        # Create synthetic terrain based on location
-        # This should be replaced with actual SRTM data download
-        width, height = 1024, 1024
-        x = np.linspace(0, 10, width)
-        y = np.linspace(0, 10, height)
-        X, Y = np.meshgrid(x, y)
+        # Calculate tile coordinates for bbox
+        def latlon_to_tile(lat, lon, zoom):
+            lat_rad = math.radians(lat)
+            n = 2.0 ** zoom
+            x = int((lon + 180.0) / 360.0 * n)
+            y = int((1.0 - math.asinh(math.tan(lat_rad)) / math.pi) / 2.0 * n)
+            return (x, y)
         
-        # Create varied terrain using multiple sine waves
-        elevation = (
-            50 * np.sin(X * 0.5) * np.cos(Y * 0.5) +
-            30 * np.sin(X * 1.2 + Y * 0.8) +
-            20 * np.cos(X * 0.8 - Y * 1.5) +
-            100  # Base elevation
-        )
+        # Get tile range
+        center_lat = (bbox.north + bbox.south) / 2
+        center_lon = (bbox.east + bbox.west) / 2
+        tile_x, tile_y = latlon_to_tile(center_lat, center_lon, zoom)
         
-        return elevation.astype(np.float32)
+        # Mapzen Terrain RGB tiles (now available via AWS)
+        # Alternative: use Open-Elevation or SRTM directly
+        tile_url = f"https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{zoom}/{tile_x}/{tile_y}.png"
+        
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                logger.info(f"Fetching terrain tile: {tile_url}")
+                response = await client.get(tile_url)
+                
+                if response.status_code == 200:
+                    # Decode terrain RGB tile
+                    # Terrarium format: elevation = (R * 256 + G + B / 256) - 32768
+                    img = Image.open(BytesIO(response.content))
+                    img_array = np.array(img)
+                    
+                    if len(img_array.shape) == 3 and img_array.shape[2] >= 3:
+                        r = img_array[:, :, 0].astype(np.float32)
+                        g = img_array[:, :, 1].astype(np.float32)
+                        b = img_array[:, :, 2].astype(np.float32)
+                        
+                        # Decode Terrarium format
+                        elevation = (r * 256.0 + g + b / 256.0) - 32768.0
+                        
+                        logger.info(f"✅ Downloaded real elevation data: {elevation.shape}, range: {elevation.min():.1f}m to {elevation.max():.1f}m")
+                        return elevation
+                    else:
+                        logger.warning("Invalid terrain tile format")
+                        raise ValueError("Invalid tile format")
+                else:
+                    logger.warning(f"Failed to fetch terrain tile: HTTP {response.status_code}")
+                    raise ValueError(f"HTTP {response.status_code}")
+                    
+        except Exception as e:
+            logger.error(f"Failed to download real elevation data: {e}")
+            logger.warning("Falling back to synthetic elevation data")
+            
+            # Fallback: create synthetic terrain
+            width, height = 512, 512
+            x = np.linspace(0, 10, width)
+            y = np.linspace(0, 10, height)
+            X, Y = np.meshgrid(x, y)
+            
+            elevation = (
+                50 * np.sin(X * 0.5) * np.cos(Y * 0.5) +
+                30 * np.sin(X * 1.2 + Y * 0.8) +
+                20 * np.cos(X * 0.8 - Y * 1.5) +
+                100
+            )
+            
+            logger.info("Using synthetic elevation data as fallback")
+            return elevation.astype(np.float32)
     
     async def _resample_elevation(
         self,

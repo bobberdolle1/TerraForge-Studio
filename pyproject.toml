@@ -1,34 +1,56 @@
 [tool.poetry]
-name = "realworldmapgen-bng"
-version = "0.1.0"
-description = "AI-powered real-world map generator for BeamNG.drive with automated infrastructure generation"
-authors = ["Your Name <your.email@example.com>"]
+name = "terraforge-studio"
+version = "1.0.0"
+description = "Professional cross-platform 3D terrain and real-world map generator for Unreal Engine 5, Unity, and other game engines"
+authors = ["TerraForge Team <contact@terraforge.dev>"]
 readme = "README.md"
 license = "MIT"
 packages = [{include = "realworldmapgen"}]
 
 [tool.poetry.dependencies]
 python = "^3.13"
+# Web Framework
 fastapi = "^0.115.0"
 uvicorn = {extras = ["standard"], version = "^0.32.0"}
 pydantic = "^2.9.0"
 pydantic-settings = "^2.6.0"
-requests = "^2.32.0"
-numpy = "^2.1.0"
-pillow = "^11.0.0"
-shapely = "^2.0.6"
-geopandas = "^1.0.1"
-osmnx = "^2.0.0"
-ollama = "^0.4.0"
-aiofiles = "^24.1.0"
 python-multipart = "^0.0.17"
-rasterio = "^1.4.2"
-elevation = "^1.1.3"
+aiofiles = "^24.1.0"
+httpx = "^0.27.0"
+
+# Scientific Computing
+numpy = "^2.1.0"
+scipy = "^1.14.0"
+pillow = "^11.0.0"
+
+# Geospatial Core
+shapely = "^2.0.6"
 pyproj = "^3.7.0"
 networkx = "^3.4.0"
-matplotlib = "^3.9.0"
-scipy = "^1.14.0"
-httpx = "^0.27.0"
+rasterio = "^1.3.10"
+geopandas = "^1.0.1"
+
+# OpenStreetMap
+osmnx = "^2.0.0"
+requests = "^2.32.0"
+
+# New Geospatial Data Sources
+sentinelhub = "^3.10.0"
+earthengine-api = "^0.1.387"
+azure-maps-geolocation = "^1.0.0b1"
+azure-maps-render = "^1.0.0b1"
+
+# 3D Export Formats
+pygltflib = "^1.16.1"
+trimesh = "^4.0.5"
+pywavefront = "^1.3.3"
+
+# AI (Optional)
+ollama = "^0.4.0"
+
+# Utilities
+python-dotenv = "^1.0.0"
+tqdm = "^4.66.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"

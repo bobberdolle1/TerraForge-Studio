@@ -90,10 +90,26 @@ class MapGenerator:
             status.progress = 10.0
             logger.info("Step 1/5: Extracting OSM data")
             
-            osm_data = await asyncio.to_thread(
-                self.osm_extractor.extract_all_data,
-                request.bbox
-            )
+            try:
+                # Add timeout at asyncio level as additional safety
+                osm_data = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        self.osm_extractor.extract_all_data,
+                        request.bbox
+                    ),
+                    timeout=180.0  # 3 minutes total for all OSM data
+                )
+            except asyncio.TimeoutError:
+                logger.error("⏱️ OSM data extraction timed out after 3 minutes")
+                logger.warning("Creating map with minimal OSM data")
+                # Create minimal OSM data
+                osm_data = {
+                    "roads": [],
+                    "buildings": [],
+                    "traffic_lights": [],
+                    "parking_lots": [],
+                    "vegetation": []
+                }
             
             if request.enable_roads:
                 map_data.roads = osm_data["roads"]
