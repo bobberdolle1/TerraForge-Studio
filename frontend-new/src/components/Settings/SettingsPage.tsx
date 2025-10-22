@@ -77,14 +77,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onClose }) => {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="glass rounded-lg shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center space-x-3">
-            <Settings className="w-6 h-6 text-blue-600" />
-            <h2 className="text-2xl font-bold text-gray-900">Settings</h2>
+            <Settings className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Settings</h2>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-2xl"
+            className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-2xl transition"
           >
             ×
           </button>
@@ -92,7 +92,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onClose }) => {
 
         <div className="flex flex-1 overflow-hidden">
           {/* Sidebar Tabs */}
-          <div className="w-64 border-r border-gray-200 p-4 space-y-2">
+          <div className="w-64 border-r border-gray-200 dark:border-gray-700 p-4 space-y-2">
             {tabs.map(tab => {
               const Icon = tab.icon;
               return (
@@ -102,7 +102,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onClose }) => {
                   className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition ${
                     activeTab === tab.id
                       ? 'bg-blue-600 text-white'
-                      : 'bg-white text-gray-700 hover:bg-gray-100'
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                   }`}
                 >
                   <Icon className="w-5 h-5" />
@@ -113,7 +113,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onClose }) => {
           </div>
 
           {/* Content Area */}
-          <div className="flex-1 p-6 overflow-y-auto">
+          <div className="flex-1 p-6 overflow-y-auto bg-white/50 dark:bg-gray-900/50">
             {activeTab === 'sources' && (
               <DataSourcesTab
                 credentials={settings.credentials}
@@ -161,4 +161,3 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onClose }) => {
 };
 
 export default SettingsPage;
-

@@ -4,6 +4,7 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  darkMode: 'class', // Enable dark mode via class strategy
   theme: {
     extend: {
       colors: {
@@ -23,6 +24,9 @@ export default {
       animation: {
         'spin-slow': 'spin 3s linear infinite',
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+      },
+      transitionProperty: {
+        'colors-opacity': 'color, background-color, border-color, text-decoration-color, fill, stroke, opacity',
       },
     },
   },

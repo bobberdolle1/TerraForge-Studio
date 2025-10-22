@@ -10,6 +10,7 @@ import StatusMonitor from './components/StatusMonitor';
 import Preview3D from './components/Preview3D';
 import SettingsPage from './components/Settings/SettingsPage';
 import SetupWizard from './components/SetupWizard';
+import ThemeToggle from './components/ThemeToggle';
 import { terraforgeApi } from './services/api';
 import { settingsApi } from './services/settings-api';
 import type { BoundingBox, ExportFormat, ElevationSource, GenerationStatus } from './types';
@@ -80,7 +81,7 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-200">
       {/* Setup Wizard */}
       {showWizard && (
         <SetupWizard onComplete={() => setShowWizard(false)} />
@@ -92,21 +93,21 @@ function App() {
       )}
 
       {/* Header */}
-      <header className="glass border-b border-gray-200">
+      <header className="glass border-b border-gray-200 dark:border-gray-700">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <Globe className="w-8 h-8 text-blue-600" />
+              <Globe className="w-8 h-8 text-blue-600 dark:text-blue-400" />
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">TerraForge Studio</h1>
-                <p className="text-sm text-gray-600">
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">TerraForge Studio</h1>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
                   Professional 3D Terrain Generator {appHealth?.version && `v${appHealth.version}`}
                 </p>
               </div>
             </div>
 
             <div className="flex items-center space-x-4">
-              <div className="text-sm text-gray-600">
+              <div className="text-sm text-gray-600 dark:text-gray-400">
                 {appHealth?.data_sources && (
                   <span>
                     {appHealth.data_sources.available.length} / {appHealth.data_sources.total} sources available
@@ -114,9 +115,11 @@ function App() {
                 )}
               </div>
               
+              <ThemeToggle />
+              
               <button
                 onClick={() => setShowSettings(true)}
-                className="flex items-center space-x-2 px-4 py-2 bg-white hover:bg-gray-100 rounded-md border border-gray-300 transition"
+                className="flex items-center space-x-2 px-4 py-2 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white rounded-md border border-gray-300 dark:border-gray-600 transition"
               >
                 <SettingsIcon className="w-5 h-5" />
                 <span>Settings</span>
@@ -138,7 +141,7 @@ function App() {
                 className={`flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-md transition ${
                   activeTab === '2d'
                     ? 'bg-blue-600 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-100'
+                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                 }`}
               >
                 <Map className="w-5 h-5" />
@@ -149,7 +152,7 @@ function App() {
                 className={`flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-md transition ${
                   activeTab === '3d'
                     ? 'bg-blue-600 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-100'
+                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                 }`}
               >
                 <Box className="w-5 h-5" />
@@ -174,8 +177,8 @@ function App() {
           <div className="space-y-6">
             {/* Export Configuration */}
             <div className="glass rounded-lg p-6 shadow-lg">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <Settings className="w-5 h-5 mr-2" />
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+                <Download className="w-5 h-5 mr-2" />
                 Export Configuration
               </h2>
               <ExportPanel
@@ -187,7 +190,7 @@ function App() {
             {/* Generation Status */}
             {currentTask && (
               <div className="glass rounded-lg p-6 shadow-lg">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
                   <Download className="w-5 h-5 mr-2" />
                   Generation Status
                 </h2>
@@ -199,7 +202,7 @@ function App() {
       </main>
 
       {/* Footer */}
-      <footer className="mt-12 py-6 text-center text-sm text-gray-600">
+      <footer className="mt-12 py-6 text-center text-sm text-gray-600 dark:text-gray-400">
         <p>
           TerraForge Studio - Professional Cross-Platform 3D Terrain Generator
         </p>

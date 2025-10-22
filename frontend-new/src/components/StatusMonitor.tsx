@@ -30,7 +30,7 @@ const StatusMonitor: React.FC<StatusMonitorProps> = ({ status }) => {
       case 'processing':
         return 'bg-blue-500';
       default:
-        return 'bg-gray-300';
+        return 'bg-gray-300 dark:bg-gray-600';
     }
   };
 
@@ -40,19 +40,19 @@ const StatusMonitor: React.FC<StatusMonitorProps> = ({ status }) => {
       <div className="flex items-center space-x-3">
         {getStatusIcon()}
         <div className="flex-1">
-          <p className="font-semibold text-gray-900 capitalize">{status.status}</p>
-          <p className="text-sm text-gray-600">{status.current_step}</p>
+          <p className="font-semibold text-gray-900 dark:text-white capitalize">{status.status}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">{status.current_step}</p>
         </div>
       </div>
 
       {/* Progress Bar */}
       {status.status === 'processing' && (
         <div className="space-y-2">
-          <div className="flex justify-between text-sm text-gray-600">
+          <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
             <span>Progress</span>
             <span>{status.progress.toFixed(0)}%</span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
             <div
               className={`${getStatusColor()} h-2 rounded-full transition-all duration-300`}
               style={{ width: `${status.progress}%` }}
@@ -63,17 +63,17 @@ const StatusMonitor: React.FC<StatusMonitorProps> = ({ status }) => {
 
       {/* Error Message */}
       {status.error && (
-        <div className="bg-red-50 border border-red-200 rounded-md p-3">
-          <p className="text-sm text-red-800">{status.error}</p>
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-3">
+          <p className="text-sm text-red-800 dark:text-red-200">{status.error}</p>
         </div>
       )}
 
       {/* Success Result */}
       {status.result && (
-        <div className="bg-green-50 border border-green-200 rounded-md p-4 space-y-3">
-          <h4 className="font-semibold text-green-900">Generation Complete!</h4>
+        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md p-4 space-y-3">
+          <h4 className="font-semibold text-green-900 dark:text-green-100">Generation Complete!</h4>
           
-          <div className="text-sm text-green-800 space-y-1">
+          <div className="text-sm text-green-800 dark:text-green-200 space-y-1">
             <p><strong>Terrain:</strong> {status.result.terrain_name}</p>
             <p><strong>Resolution:</strong> {status.result.resolution}x{status.result.resolution}</p>
             <p><strong>Area:</strong> {status.result.area_km2.toFixed(2)} km²</p>
@@ -84,17 +84,17 @@ const StatusMonitor: React.FC<StatusMonitorProps> = ({ status }) => {
           </div>
 
           {/* Export Downloads */}
-          <div className="pt-3 border-t border-green-300">
-            <p className="text-sm font-semibold text-green-900 mb-2">Exports:</p>
+          <div className="pt-3 border-t border-green-300 dark:border-green-700">
+            <p className="text-sm font-semibold text-green-900 dark:text-green-100 mb-2">Exports:</p>
             <div className="space-y-2">
               {Object.keys(status.result.exports).map(format => (
                 <a
                   key={format}
                   href={`/api/download/${status.task_id}/${format}`}
-                  className="flex items-center justify-between px-3 py-2 bg-white rounded-md hover:bg-green-100 transition"
+                  className="flex items-center justify-between px-3 py-2 bg-white dark:bg-gray-800 rounded-md hover:bg-green-100 dark:hover:bg-green-900/30 transition"
                 >
-                  <span className="text-sm text-gray-700 capitalize">{format}</span>
-                  <Download className="w-4 h-4 text-green-600" />
+                  <span className="text-sm text-gray-700 dark:text-gray-300 capitalize">{format}</span>
+                  <Download className="w-4 h-4 text-green-600 dark:text-green-400" />
                 </a>
               ))}
             </div>
@@ -106,4 +106,3 @@ const StatusMonitor: React.FC<StatusMonitorProps> = ({ status }) => {
 };
 
 export default StatusMonitor;
-

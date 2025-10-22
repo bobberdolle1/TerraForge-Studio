@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Loader } from 'lucide-react';
 import type { UIPreferences } from '@/types/settings';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface UIPreferencesTabProps {
   ui: UIPreferences;
@@ -10,18 +11,25 @@ interface UIPreferencesTabProps {
 
 const UIPreferencesTab: React.FC<UIPreferencesTabProps> = ({ ui, onSave, saving }) => {
   const [formData, setFormData] = useState(ui);
+  const { theme, setTheme } = useTheme();
+
+  const handleSave = () => {
+    // Apply theme change immediately
+    setTheme(formData.theme);
+    onSave(formData);
+  };
 
   return (
     <div className="space-y-6">
-      <h3 className="text-xl font-semibold">UI & Language Preferences</h3>
+      <h3 className="text-xl font-semibold text-gray-900 dark:text-white">UI & Language Preferences</h3>
 
       <div className="grid grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Language</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Language</label>
           <select
             value={formData.language}
             onChange={(e) => setFormData({ ...formData, language: e.target.value as 'en' | 'ru' })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
           >
             <option value="en">English</option>
             <option value="ru">Русский</option>
@@ -29,21 +37,28 @@ const UIPreferencesTab: React.FC<UIPreferencesTabProps> = ({ ui, onSave, saving 
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Theme</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Theme</label>
           <select
             value={formData.theme}
             onChange={(e) => setFormData({ ...formData, theme: e.target.value as any })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
           >
             <option value="light">Light</option>
             <option value="dark">Dark</option>
-            <option value="auto">Auto</option>
+            <option value="auto">Auto (Follow System)</option>
           </select>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Current: {theme === 'auto' ? `Auto (${window.matchMedia('(prefers-color-scheme: dark)').matches ? 'Dark' : 'Light'})` : theme}
+          </p>
         </div>
       </div>
 
-      <div className="flex justify-end pt-6 border-t">
-        <button onClick={() => onSave(formData)} disabled={saving} className="px-6 py-3 bg-blue-600 text-white rounded-md">
+      <div className="flex justify-end pt-6 border-t border-gray-200 dark:border-gray-700">
+        <button 
+          onClick={handleSave} 
+          disabled={saving} 
+          className="flex items-center px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition"
+        >
           {saving && <Loader className="w-4 h-4 animate-spin mr-2" />}
           Save Preferences
         </button>
@@ -53,4 +68,3 @@ const UIPreferencesTab: React.FC<UIPreferencesTabProps> = ({ ui, onSave, saving 
 };
 
 export default UIPreferencesTab;
-

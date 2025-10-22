@@ -57,27 +57,27 @@ const ExportPanel: React.FC<ExportPanelProps> = ({ onGenerate, disabled }) => {
     <div className="space-y-4">
       {/* Terrain Name */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           Terrain Name
         </label>
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
           placeholder="my_terrain"
         />
       </div>
 
       {/* Resolution */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           Heightmap Resolution
         </label>
         <select
           value={resolution}
           onChange={(e) => setResolution(Number(e.target.value))}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
         >
           <option value={1009}>1009 (UE5 Small)</option>
           <option value={2017}>2017 (UE5 Medium)</option>
@@ -90,19 +90,19 @@ const ExportPanel: React.FC<ExportPanelProps> = ({ onGenerate, disabled }) => {
 
       {/* Export Formats */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Export Formats
         </label>
         <div className="space-y-2">
           {(['unreal5', 'unity', 'gltf', 'geotiff'] as ExportFormat[]).map(format => (
-            <label key={format} className="flex items-center">
+            <label key={format} className="flex items-center cursor-pointer">
               <input
                 type="checkbox"
                 checked={exportFormats.includes(format)}
                 onChange={() => toggleFormat(format)}
                 className="rounded text-blue-600 focus:ring-2 focus:ring-blue-500"
               />
-              <span className="ml-2 text-sm text-gray-700 capitalize">{format}</span>
+              <span className="ml-2 text-sm text-gray-700 dark:text-gray-300 capitalize">{format}</span>
             </label>
           ))}
         </div>
@@ -110,13 +110,13 @@ const ExportPanel: React.FC<ExportPanelProps> = ({ onGenerate, disabled }) => {
 
       {/* Elevation Source */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           Elevation Source
         </label>
         <select
           value={elevationSource}
           onChange={(e) => setElevationSource(e.target.value as ElevationSource)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
         >
           <option value="auto">Auto (Best Available)</option>
           <option value="srtm">SRTM (Free, 30-90m)</option>
@@ -126,36 +126,36 @@ const ExportPanel: React.FC<ExportPanelProps> = ({ onGenerate, disabled }) => {
 
       {/* Features */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Features
         </label>
         <div className="space-y-2">
-          <label className="flex items-center">
+          <label className="flex items-center cursor-pointer">
             <input
               type="checkbox"
               checked={enableRoads}
               onChange={(e) => setEnableRoads(e.target.checked)}
               className="rounded text-blue-600"
             />
-            <span className="ml-2 text-sm text-gray-700">Roads</span>
+            <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Roads</span>
           </label>
-          <label className="flex items-center">
+          <label className="flex items-center cursor-pointer">
             <input
               type="checkbox"
               checked={enableBuildings}
               onChange={(e) => setEnableBuildings(e.target.checked)}
               className="rounded text-blue-600"
             />
-            <span className="ml-2 text-sm text-gray-700">Buildings</span>
+            <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Buildings</span>
           </label>
-          <label className="flex items-center">
+          <label className="flex items-center cursor-pointer">
             <input
               type="checkbox"
               checked={enableWeightmaps}
               onChange={(e) => setEnableWeightmaps(e.target.checked)}
               className="rounded text-blue-600"
             />
-            <span className="ml-2 text-sm text-gray-700">Material Weightmaps</span>
+            <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Material Weightmaps</span>
           </label>
         </div>
       </div>
@@ -164,7 +164,7 @@ const ExportPanel: React.FC<ExportPanelProps> = ({ onGenerate, disabled }) => {
       <button
         onClick={handleGenerate}
         disabled={disabled || exportFormats.length === 0}
-        className="w-full flex items-center justify-center space-x-2 bg-blue-600 text-white px-4 py-3 rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
+        className="w-full flex items-center justify-center space-x-2 bg-blue-600 text-white px-4 py-3 rounded-md hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition"
       >
         <Rocket className="w-5 h-5" />
         <span>Generate Terrain</span>
@@ -174,4 +174,3 @@ const ExportPanel: React.FC<ExportPanelProps> = ({ onGenerate, disabled }) => {
 };
 
 export default ExportPanel;
-
