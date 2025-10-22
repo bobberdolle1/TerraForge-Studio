@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Globe, Settings as SettingsIcon, Download, Map, Box, History, Database, Share2 } from 'lucide-react';
+import KeyboardShortcuts from './components/KeyboardShortcuts';
 import MapSelector from './components/MapSelector';
 import ExportPanel from './components/ExportPanel';
 import StatusMonitor from './components/StatusMonitor';
@@ -452,6 +453,9 @@ function App() {
           </p>
         </footer>
       )}
+
+      {/* Keyboard Shortcuts Helper */}
+      <KeyboardShortcuts />
     </div>
   );
 }

@@ -1,21 +1,18 @@
 # 📚 TerraForge Studio Documentation
 
-Complete documentation for TerraForge Studio - Professional 3D Terrain Generator.
+Complete documentation for TerraForge Studio v4.0.0
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Quick Start
 
-### New Users
-1. **[QUICKSTART.md](QUICKSTART.md)** - 5-minute quick start guide
-2. **[RUN_INSTRUCTIONS.md](RUN_INSTRUCTIONS.md)** - Detailed setup and running
-3. **[SETTINGS_GUIDE.md](SETTINGS_GUIDE.md)** - Configure API keys and settings
-
-### Installation
-- **[INSTALLATION.md](INSTALLATION.md)** - Complete installation guide
+- **[Installation Guide](INSTALLATION.md)** - Setup and installation
+- **[Quick Start](QUICK_START.md)** - Get up and running in 5 minutes
+- **[Windows Setup](WINDOWS_SETUP.md)** - Windows-specific instructions
 
 ---
 
+## 📖 Core Documentation
 ## 🔧 Configuration & Usage
 
 ### Settings & API Keys
