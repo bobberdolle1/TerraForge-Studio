@@ -8,6 +8,7 @@ from typing import Dict, Any, List, Optional
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
 from ..models import (
@@ -89,10 +90,17 @@ async def startup_event():
     logger.info("  - OpenTopography: High-res DEMs")
     logger.info("  - Azure Maps: Vector data")
     logger.info("=" * 60)
+    
+    # Mount static files for desktop app (if available)
+    static_dir = Path(__file__).parent.parent.parent / "frontend-new" / "dist"
+    if static_dir.exists():
+        logger.info(f"✓ Mounting static frontend from {static_dir}")
+        app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="static")
 
 
-@app.get("/")
-async def root():
+@app.get("/api")
+@app.get("/api/")
+async def api_root():
     """API root endpoint"""
     return {
         "name": "TerraForge Studio",

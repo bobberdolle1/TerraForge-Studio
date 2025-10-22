@@ -1,0 +1,19 @@
+# Desktop Application Requirements
+# These are additional requirements for the desktop build
+
+# PyInstaller for creating executable
+pyinstaller>=6.3.0
+
+# Pillow for icon generation
+pillow>=11.0.0
+
+# pywebview for native window (install manually to avoid pythonnet on Python 3.14)
+# Use: pip install pywebview --no-deps
+# Then: pip install bottle proxy-tools typing-extensions
+
+bottle>=0.12.0
+proxy-tools>=0.1.0
+typing-extensions>=4.0.0
+
+# Note: On Windows 10/11, pywebview uses Edge WebView2 (built-in, no pythonnet needed)
+# pythonnet is NOT compatible with Python 3.14, so we skip it

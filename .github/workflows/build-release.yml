@@ -1,0 +1,144 @@
+name: Build and Release Desktop Application
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Trigger on version tags like v1.0.0
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  build-windows:
+    name: Build Windows Desktop App
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Cache Python dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\pip\Cache
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+            
+      - name: Cache Node.js dependencies
+        uses: actions/cache@v4
+        with:
+          path: frontend-new/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+            
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r desktop/desktop_requirements.txt
+          
+      - name: Build Frontend
+        working-directory: frontend-new
+        run: |
+          npm install
+          npm run build
+          
+      - name: Build Desktop Application
+        run: |
+          python desktop/build.py
+          
+      - name: Create Release Archive
+        run: |
+          $version = "${{ github.ref_name }}"
+          $archiveName = "TerraForge-Studio-$version-Windows-x64.zip"
+          Compress-Archive -Path "desktop/dist/TerraForge Studio/*" -DestinationPath $archiveName
+          echo "ARCHIVE_NAME=$archiveName" >> $env:GITHUB_ENV
+        shell: pwsh
+        
+      - name: Calculate checksums
+        run: |
+          $archiveName = $env:ARCHIVE_NAME
+          $hash = Get-FileHash $archiveName -Algorithm SHA256
+          $hash.Hash | Out-File -FilePath "$archiveName.sha256"
+        shell: pwsh
+        
+      - name: Upload Release Asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: |
+            TerraForge-Studio-*.zip
+            TerraForge-Studio-*.zip.sha256
+            
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            TerraForge-Studio-*.zip
+            TerraForge-Studio-*.zip.sha256
+          body: |
+            # TerraForge Studio Desktop ${{ github.ref_name }}
+            
+            ## What's New
+            
+            Professional desktop application for 3D terrain generation from real-world map data.
+            
+            ## Features
+            
+            - ✨ Native Windows application with modern UI
+            - 🗺️ Real-world map data from OpenStreetMap
+            - 🎮 Export to Unreal Engine 5, Unity, GLTF, GeoTIFF
+            - 🌍 Built-in 3D preview with Cesium
+            - 🚀 No installation required - fully portable
+            
+            ## Installation
+            
+            1. Download `TerraForge-Studio-${{ github.ref_name }}-Windows-x64.zip`
+            2. Extract to any folder
+            3. Run `TerraForge Studio.exe`
+            
+            ## System Requirements
+            
+            - Windows 10/11 (64-bit)
+            - 4GB RAM minimum (8GB recommended)
+            - 500MB free disk space
+            - Internet connection for map data
+            
+            ## Verification
+            
+            Verify the download integrity using SHA256:
+            ```
+            certutil -hashfile TerraForge-Studio-${{ github.ref_name }}-Windows-x64.zip SHA256
+            ```
+            
+            Compare with the hash in `.sha256` file.
+            
+            ## Support
+            
+            - 📖 [Documentation](https://github.com/${{ github.repository }}/wiki)
+            - 🐛 [Report Issues](https://github.com/${{ github.repository }}/issues)
+            - 💬 [Discussions](https://github.com/${{ github.repository }}/discussions)
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+  build-linux:
+    name: Build Linux Desktop App (Future)
+    runs-on: ubuntu-latest
+    if: false  # Disabled for now, enable when ready
+    
+    steps:
+      - name: Placeholder
+        run: echo "Linux build coming soon"
