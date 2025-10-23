@@ -30,9 +30,9 @@ requests==2.32.0
 
 # New Geospatial Data Sources
 sentinelhub==3.10.0
-earthengine-api==0.1.387
-azure-maps-geolocation==1.0.0b1
-azure-maps-render==1.0.0b1
+# earthengine-api - requires Google Cloud setup, install manually if needed
+# azure-maps-geolocation - beta package, install manually if needed
+# azure-maps-render - beta package, install manually if needed
 
 # 3D Export Formats
 pygltflib==1.16.1

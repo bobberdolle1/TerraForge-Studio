@@ -6,6 +6,9 @@ on:
       - 'v*.*.*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build ${{ matrix.platform }}
@@ -60,9 +63,6 @@ jobs:
       - name: Build Tauri app
         working-directory: frontend-new
         run: npm run tauri build -- --target ${{ matrix.rust_target }}
-        env:
-          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
 
       - name: Upload Windows artifacts
         if: matrix.platform == 'windows'
