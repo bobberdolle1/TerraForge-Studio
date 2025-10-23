@@ -188,6 +188,16 @@ class CacheSettings(BaseModel):
 # Complete User Settings
 # ========================================
 
+class AISettings(BaseModel):
+    """AI Assistant settings"""
+    enabled: bool = False
+    ollama_url: str = "http://localhost:11434"
+    vision_model: str = "qwen3-vl:235b-cloud"
+    coder_model: str = "qwen3-coder:480b-cloud"
+    auto_analyze: bool = False
+    timeout_seconds: int = 120
+
+
 class UserSettings(BaseModel):
     """Complete user settings"""
     
@@ -201,6 +211,7 @@ class UserSettings(BaseModel):
     export_profiles: ExportProfiles = Field(default_factory=ExportProfiles)
     ui: UIPreferences = Field(default_factory=UIPreferences)
     cache: CacheSettings = Field(default_factory=CacheSettings)
+    ai: Optional[AISettings] = Field(default_factory=AISettings)
     
     # Meta
     version: str = "1.0.0"
@@ -233,6 +244,7 @@ class SettingsUpdate(BaseModel):
     export_profiles: Optional[ExportProfiles] = None
     ui: Optional[UIPreferences] = None
     cache: Optional[CacheSettings] = None
+    ai: Optional[AISettings] = None
 
 
 class MaskedCredentials(BaseModel):

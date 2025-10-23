@@ -6,6 +6,7 @@ import './styles/mobile.css'
 import { ThemeProvider } from './contexts/ThemeContext'
 import ToastContainer from './components/ToastContainer'
 import ErrorBoundary from './components/ErrorBoundary'
+import './i18n/config'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

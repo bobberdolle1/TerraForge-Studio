@@ -9,7 +9,23 @@ interface GenerationTabProps {
 }
 
 const GenerationTab: React.FC<GenerationTabProps> = ({ generation, onSave, saving }) => {
-  const [formData, setFormData] = useState(generation);
+  const defaultGeneration: GenerationDefaults = {
+    default_resolution: 2048,
+    max_area_km2: 100,
+    elevation_source_priority: ['auto'],
+    enable_roads: true,
+    enable_buildings: true,
+    enable_vegetation: true,
+    enable_weightmaps: true,
+    enable_water_bodies: true,
+    parallel_processing: true,
+    max_workers: 4,
+  };
+
+  const [formData, setFormData] = useState<GenerationDefaults>({
+    ...defaultGeneration,
+    ...generation,
+  });
 
   return (
     <div className="space-y-6">

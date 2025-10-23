@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Loader } from 'lucide-react';
 import type { UIPreferences } from '@/types/settings';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from 'react-i18next';
 
 interface UIPreferencesTabProps {
   ui: UIPreferences;
@@ -10,12 +11,27 @@ interface UIPreferencesTabProps {
 }
 
 const UIPreferencesTab: React.FC<UIPreferencesTabProps> = ({ ui, onSave, saving }) => {
-  const [formData, setFormData] = useState(ui);
+  const defaultUI: UIPreferences = {
+    language: 'en',
+    theme: 'auto',
+    show_tooltips: false,
+    show_tutorial: true,
+    compact_mode: false,
+    default_map_view: '2d',
+  };
+
+  const [formData, setFormData] = useState<UIPreferences>({
+    ...defaultUI,
+    ...ui,
+  });
   const { theme, setTheme } = useTheme();
+  const { i18n } = useTranslation();
 
   const handleSave = () => {
     // Apply theme change immediately
     setTheme(formData.theme);
+    // Apply language change immediately
+    i18n.changeLanguage(formData.language);
     onSave(formData);
   };
 

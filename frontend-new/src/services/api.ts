@@ -11,7 +11,9 @@ import type {
   FormatsResponse,
 } from '@/types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// Use empty baseURL to make requests relative to current origin
+// This works for both dev (with proxy) and production (served from same origin)
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 // Create axios instance
 const api = axios.create({

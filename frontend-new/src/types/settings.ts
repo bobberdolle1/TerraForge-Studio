@@ -93,6 +93,15 @@ export interface CacheSettings {
   cleanup_threshold_days: number;
 }
 
+export interface AISettings {
+  enabled: boolean;
+  ollama_url: string;
+  vision_model: string;
+  coder_model: string;
+  auto_analyze: boolean;
+  timeout_seconds: number;
+}
+
 export interface UserSettings {
   user_name?: string;
   user_email?: string;
@@ -101,6 +110,7 @@ export interface UserSettings {
   export_profiles: ExportProfiles;
   ui: UIPreferences;
   cache: CacheSettings;
+  ai?: AISettings;
   version: string;
   first_run: boolean;
 }
@@ -111,6 +121,7 @@ export interface SettingsUpdate {
   export_profiles?: ExportProfiles;
   ui?: UIPreferences;
   cache?: CacheSettings;
+  ai?: AISettings;
 }
 
 export interface MaskedCredentials {

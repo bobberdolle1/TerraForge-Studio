@@ -8,7 +8,14 @@ from enum import Enum
 from typing import Optional, Dict, Any, Tuple
 from dataclasses import dataclass
 import numpy as np
-from shapely.geometry import box
+
+# Shapely is optional - desktop version may not have it
+try:
+    from shapely.geometry import box
+    SHAPELY_AVAILABLE = True
+except ImportError:
+    SHAPELY_AVAILABLE = False
+    box = None
 
 
 class DataSourceType(Enum):
@@ -47,7 +54,9 @@ class BoundingBox:
     west: float
 
     def to_shapely(self):
-        """Convert to Shapely box"""
+        """Convert to Shapely box (if shapely is available)"""
+        if not SHAPELY_AVAILABLE:
+            raise ImportError("shapely is not installed. Install with: pip install shapely")
         return box(self.west, self.south, self.east, self.north)
 
     @property

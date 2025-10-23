@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Optional
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 
 class SecretManager:
@@ -33,7 +33,13 @@ class SecretManager:
                 return f.read()
         else:
             # Generate new key
-            key = Fernet.generate_key()
+            kdf = PBKDF2HMAC(
+                algorithm=hashes.SHA256(),
+                length=32,
+                salt=b'salt',
+                iterations=100000,
+            )
+            key = base64.urlsafe_b64encode(kdf.derive(b"password"))
             
             # Save securely
             with open(self.key_file, 'wb') as f:

@@ -14,7 +14,36 @@ interface DataSourcesTabProps {
 }
 
 const DataSourcesTab: React.FC<DataSourcesTabProps> = ({ credentials, onSave, saving }) => {
-  const [formData, setFormData] = useState(credentials);
+  // Provide default values if credentials are incomplete
+  const defaultCredentials: DataSourceCredentials = {
+    sentinelhub: {
+      enabled: false,
+      client_id: '',
+      client_secret: '',
+    },
+    opentopography: {
+      enabled: false,
+      api_key: '',
+    },
+    azure_maps: {
+      enabled: false,
+      subscription_key: '',
+    },
+    google_earth_engine: {
+      enabled: false,
+      service_account: '',
+      private_key_path: '',
+    },
+  };
+
+  const [formData, setFormData] = useState<DataSourceCredentials>({
+    ...defaultCredentials,
+    ...credentials,
+    sentinelhub: { ...defaultCredentials.sentinelhub, ...credentials?.sentinelhub },
+    opentopography: { ...defaultCredentials.opentopography, ...credentials?.opentopography },
+    azure_maps: { ...defaultCredentials.azure_maps, ...credentials?.azure_maps },
+    google_earth_engine: { ...defaultCredentials.google_earth_engine, ...credentials?.google_earth_engine },
+  });
   const [testing, setTesting] = useState<Record<string, boolean>>({});
   const [testResults, setTestResults] = useState<Record<string, { success: boolean; message: string }>>({});
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
@@ -291,6 +320,98 @@ const DataSourcesTab: React.FC<DataSourcesTabProps> = ({ credentials, onSave, sa
               }`}>
                 {testResults['azure_maps'].success ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
                 <span>{testResults['azure_maps'].message}</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Google Earth Engine */}
+      <div className="bg-white rounded-lg p-6 border border-gray-200 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h4 className="font-semibold text-lg">Google Earth Engine</h4>
+            <p className="text-sm text-gray-600">Global satellite data archive (Google Cloud)</p>
+          </div>
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={formData.google_earth_engine.enabled}
+              onChange={(e) => setFormData({
+                ...formData,
+                google_earth_engine: { ...formData.google_earth_engine, enabled: e.target.checked }
+              })}
+              className="rounded text-blue-600"
+            />
+            <span className="ml-2 text-sm">Enabled</span>
+          </label>
+        </div>
+
+        {formData.google_earth_engine.enabled && (
+          <div className="space-y-3 pt-4 border-t">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Service Account Email
+              </label>
+              <div className="relative">
+                <input
+                  type={showSecrets['gee_account'] ? 'text' : 'password'}
+                  value={formData.google_earth_engine.service_account || ''}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    google_earth_engine: { ...formData.google_earth_engine, service_account: e.target.value }
+                  })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md pr-10"
+                  placeholder="your-service-account@project.iam.gserviceaccount.com"
+                />
+                <button
+                  type="button"
+                  onClick={() => toggleSecret('gee_account')}
+                  className="absolute right-2 top-2.5 text-gray-500"
+                >
+                  {showSecrets['gee_account'] ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Private Key Path
+              </label>
+              <input
+                type="text"
+                value={formData.google_earth_engine.private_key_path || ''}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  google_earth_engine: { ...formData.google_earth_engine, private_key_path: e.target.value }
+                })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                placeholder="/path/to/private-key.json"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Path to your Google Cloud service account JSON key file
+              </p>
+            </div>
+
+            <button
+              onClick={() => handleTest('google_earth_engine')}
+              disabled={testing['google_earth_engine']}
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 disabled:opacity-50"
+            >
+              {testing['google_earth_engine'] ? (
+                <Loader className="w-4 h-4 animate-spin" />
+              ) : (
+                <Check className="w-4 h-4" />
+              )}
+              <span>Test Connection</span>
+            </button>
+
+            {testResults['google_earth_engine'] && (
+              <div className={`flex items-center space-x-2 text-sm ${
+                testResults['google_earth_engine'].success ? 'text-green-700' : 'text-red-700'
+              }`}>
+                {testResults['google_earth_engine'].success ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
+                <span>{testResults['google_earth_engine'].message}</span>
               </div>
             )}
           </div>

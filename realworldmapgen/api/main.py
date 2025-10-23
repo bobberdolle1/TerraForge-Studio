@@ -5,11 +5,12 @@ FastAPI application for RealWorldMapGen-BNG
 import logging
 import uuid
 from typing import Dict, Any, List, Optional
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from ..models import (
     MapGenerationRequest, GenerationStatus, BoundingBox, ExportFormat
@@ -50,6 +51,34 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add Cache-Control middleware for static files
+class CacheControlMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        
+        # Don't cache API responses
+        if request.url.path.startswith('/api'):
+            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+        # Cache static assets with versioned filenames (hashed)
+        elif any(request.url.path.endswith(ext) for ext in ['.js', '.css', '.woff2', '.woff', '.ttf']):
+            if '-' in request.url.path and '/assets/' in request.url.path:
+                # Vite adds hashes to filenames, so these can be cached forever
+                response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+            else:
+                # Other JS/CSS files without hashes - short cache
+                response.headers['Cache-Control'] = 'public, max-age=3600, must-revalidate'
+        # HTML files - never cache
+        elif request.url.path.endswith('.html') or request.url.path == '/':
+            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+        
+        return response
+
+app.add_middleware(CacheControlMiddleware)
 
 # Include routers
 app.include_router(settings_router)

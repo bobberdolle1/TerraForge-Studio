@@ -1,10 +1,91 @@
-# 📚 TerraForge Studio Documentation
+# 📚 Документация TerraForge Studio / TerraForge Studio Documentation
+
+Добро пожаловать в документацию TerraForge Studio! / Welcome to TerraForge Studio documentation!
+
+## 🚀 Начало работы / Getting Started
+
+- [Быстрый старт / Quick Start](QUICK_START.md) - Начните за 5 минут / Get started in 5 minutes
+- [Руководство пользователя / User Guide](USER_GUIDE.md) - Полное руководство / Complete guide
+- [Настройки / Settings Guide](SETTINGS_GUIDE.md) - Конфигурация системы / System configuration
+
+## 🔧 Технические руководства / Technical Guides
+
+- [Спецификация API / API Specification](API_SPECIFICATION.md) - REST API документация / REST API docs
+- [Примеры API / API Examples](API_EXAMPLES.md) - Примеры использования / Usage examples
+- [Экспортеры / Exporters Guide](EXPORTERS_GUIDE.md) - Экспорт для движков / Game engine export
+- [AI интеграция / AI Integration](AI_INTEGRATION.md) - Интеграция с AI (Ollama/Qwen3)
+
+## 📖 Дополнительно / Additional
+
+- [Возможности / Features](FEATURES.md) - Полный список / Complete list
+- [Развертывание / Deployment](DEPLOYMENT.md) - Production развертывание / Production deployment
+- [Участие / Contributing](CONTRIBUTING.md) - Как помочь проекту / How to contribute
+- [Roadmap](ROADMAP_v4.x.md) - План развития / Development plan
+
+## 🏗️ Архитектура / Architecture
+
+### Frontend / Фронтенд
+- **React 18** + TypeScript + Vite
+- **Leaflet** - 2D карты / 2D maps
+- **Cesium** - 3D превью / 3D preview
+- **Tauri 2.0** - Desktop wrapper / Десктоп обертка
+
+### Backend / Бэкенд
+- **FastAPI** - REST API
+- **Python 3.10+** - Бизнес-логика / Business logic
+- **Pydantic** - Валидация данных / Data validation
+
+### Data Sources / Источники данных
+- OpenStreetMap
+- SRTM Elevation / Высоты SRTM
+- OpenTopography
+- SentinelHub (опционально / optional)
+- Azure Maps (опционально / optional)
+- Google Earth Engine (опционально / optional)
+
+## 🤖 AI возможности / AI Features
+
+- **Qwen3-VL** - Vision model для анализа местности / Vision model for terrain analysis
+- **Qwen3-Coder** - Генерация конфигураций / Configuration generation
+- **Ollama** - Локальный запуск моделей / Local model execution
+
+## 📁 Структура проекта / Project Structure
+
+```
+TerraForge-Studio/
+├── frontend-new/          # React frontend / Фронтенд
+│   ├── src/
+│   │   ├── components/    # UI компоненты / UI components
+│   │   ├── services/      # API клиенты / API clients
+│   │   ├── i18n/          # Локализация / Localization
+│   │   └── types/         # TypeScript типы / TypeScript types
+│   └── src-tauri/         # Tauri wrapper / Tauri обертка
+│
+├── realworldmapgen/       # Python backend / Бэкенд
+│   ├── api/               # FastAPI routes / API маршруты
+│   ├── core/              # Бизнес-логика / Business logic
+│   ├── ai/                # AI интеграция / AI integration
+│   ├── settings/          # Settings manager / Менеджер настроек
+│   └── exporters/         # Export engines / Экспортеры
+│
+└── docs/                  # Документация / Documentation
+```
+
+## 🔗 Полезные ссылки / Useful Links
+
+- [Главная / Main README](../README.md)
+- [Установка / Setup Guide](../SETUP.md)
+- [Ollama настройка / Ollama Setup](../OLLAMA_SETUP.md)
+- [История изменений / Changelog](../CHANGELOG.md)
+
+---
+
+# TerraForge Studio Documentation
 
 Complete documentation for TerraForge Studio v4.0.0
 
 ---
 
-## 🚀 Quick Start
 
 - **[Installation Guide](INSTALLATION.md)** - Setup and installation
 - **[Quick Start](QUICK_START.md)** - Get up and running in 5 minutes

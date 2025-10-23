@@ -7,8 +7,15 @@ import asyncio
 from typing import Optional, Dict, Any
 import numpy as np
 import httpx
-import rasterio
 from io import BytesIO
+
+# Rasterio is optional - desktop version may not have it
+try:
+    import rasterio
+    RASTERIO_AVAILABLE = True
+except ImportError:
+    RASTERIO_AVAILABLE = False
+    rasterio = None
 
 from .base import (
     BaseDataSource,

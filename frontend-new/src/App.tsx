@@ -4,9 +4,11 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Globe, Settings as SettingsIcon, Download, Map, Box, History, Database, Share2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import KeyboardShortcuts from './components/KeyboardShortcuts';
 import MapSelector from './components/MapSelector';
 import ExportPanel from './components/ExportPanel';
+import AIAssistant from './components/AIAssistant';
 import StatusMonitor from './components/StatusMonitor';
 import Preview3D from './components/Preview3D';
 import SettingsPage from './components/Settings/SettingsPage';
@@ -28,7 +30,17 @@ import type { BoundingBox, ExportFormat, ElevationSource, GenerationStatus } fro
 import type { GenerationHistoryItem } from './types/history';
 
 function App() {
-  const [selectedBbox, setSelectedBbox] = useState<BoundingBox | null>(null);
+  const { t } = useTranslation();
+  
+  // Восстановить bbox из localStorage
+  const [selectedBbox, setSelectedBbox] = useState<BoundingBox | null>(() => {
+    try {
+      const saved = localStorage.getItem('terraforge_selected_bbox');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [activeTab, setActiveTab] = useState<'2d' | '3d'>('2d');
   const [currentTask, setCurrentTask] = useState<GenerationStatus | null>(null);
   const [appHealth, setAppHealth] = useState<any>(null);
@@ -38,6 +50,7 @@ function App() {
   const [showCache, setShowCache] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [showShareManager, setShowShareManager] = useState(false);
+  const [aiEnabled, setAiEnabled] = useState(false);
   const [wsUrl, setWsUrl] = useState<string | null>(null);
   const generationStartTime = useRef<number>(0);
   
@@ -77,14 +90,26 @@ function App() {
     reconnect: true,
   });
 
-  // Check API health and first run on startup
+  // Сохранить bbox в localStorage при изменении
+  useEffect(() => {
+    if (selectedBbox) {
+      localStorage.setItem('terraforge_selected_bbox', JSON.stringify(selectedBbox));
+    } else {
+      localStorage.removeItem('terraforge_selected_bbox');
+    }
+  }, [selectedBbox]);
+
+  // Check API health, first run, and AI settings on startup
   useEffect(() => {
     Promise.all([
       terraforgeApi.getHealth(),
-      settingsApi.checkFirstRun()
-    ]).then(([health, firstRun]) => {
+      settingsApi.checkFirstRun(),
+      settingsApi.getSettings()
+    ]).then(([health, firstRun, settings]) => {
       setAppHealth(health);
       setShowWizard(firstRun.show_wizard);
+      setAiEnabled(settings?.ai?.enabled || false);
+      console.log('AI enabled:', settings?.ai?.enabled);
     }).catch(console.error);
   }, []);
 
@@ -288,11 +313,11 @@ function App() {
               <Globe className={`${isMobile ? 'w-6 h-6' : 'w-8 h-8'} text-blue-600 dark:text-blue-400`} />
               <div>
                 <h1 className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold text-gray-900 dark:text-white`}>
-                  TerraForge{!isMobile && ' Studio'}
+                  {t('app.title')}
                 </h1>
                 {!isMobile && (
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Professional 3D Terrain Generator {appHealth?.version && `v${appHealth.version}`}
+                    {t('app.subtitle')} {appHealth?.version && `v${appHealth.version}`}
                   </p>
                 )}
               </div>
@@ -317,7 +342,7 @@ function App() {
                     title="Share Manager (Ctrl+Shift+S)"
                   >
                     <Share2 className="w-5 h-5" />
-                    <span className="hidden xl:inline">Share</span>
+                    <span className="hidden xl:inline">{t('nav.share')}</span>
                   </button>
 
                   <button
@@ -326,7 +351,7 @@ function App() {
                     title="Cache Manager (Ctrl+Shift+C)"
                   >
                     <Database className="w-5 h-5" />
-                    <span className="hidden xl:inline">Cache</span>
+                    <span className="hidden xl:inline">{t('nav.cache')}</span>
                   </button>
 
                   <button
@@ -335,7 +360,7 @@ function App() {
                     title="Generation History (Ctrl+H)"
                   >
                     <History className="w-5 h-5" />
-                    <span className="hidden lg:inline">History</span>
+                    <span className="hidden lg:inline">{t('nav.history')}</span>
                   </button>
                   
                   <button
@@ -344,7 +369,7 @@ function App() {
                     title="Settings (Ctrl+S)"
                   >
                     <SettingsIcon className="w-5 h-5" />
-                    <span className="hidden lg:inline">Settings</span>
+                    <span className="hidden lg:inline">{t('nav.settings')}</span>
                   </button>
                 </>
               )}
@@ -409,13 +434,27 @@ function App() {
             <div className="glass rounded-lg p-6 shadow-lg">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
                 <Download className="w-5 h-5 mr-2" />
-                Export Configuration
+                {t('export.title')}
               </h2>
               <ExportPanel
                 onGenerate={handleGenerateTerrain}
                 disabled={!selectedBbox}
+                aiEnabled={aiEnabled}
               />
             </div>
+
+            {/* AI Assistant - только если включен в настройках */}
+            {aiEnabled && (
+              <div className="glass rounded-lg p-6 shadow-lg">
+                <AIAssistant
+                  bbox={selectedBbox}
+                  onApplyRecommendations={(settings) => {
+                    // Apply AI recommendations to export config
+                    notify.success('AI recommendations applied');
+                  }}
+                />
+              </div>
+            )}
 
             {/* Generation Status */}
             {currentTask && (

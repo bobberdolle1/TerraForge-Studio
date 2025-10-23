@@ -9,7 +9,19 @@ interface CacheStorageTabProps {
 }
 
 const CacheStorageTab: React.FC<CacheStorageTabProps> = ({ cache, onSave, saving }) => {
-  const [formData, setFormData] = useState(cache);
+  const defaultCache: CacheSettings = {
+    cache_dir: './cache',
+    output_dir: './output',
+    enable_cache: true,
+    cache_expiry_days: 30,
+    auto_cleanup_old_projects: true,
+    cleanup_threshold_days: 90,
+  };
+
+  const [formData, setFormData] = useState<CacheSettings>({
+    ...defaultCache,
+    ...cache,
+  });
 
   return (
     <div className="space-y-6">

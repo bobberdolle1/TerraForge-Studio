@@ -4,6 +4,7 @@
 
 import { useState } from 'react';
 import { Rocket, Sparkles } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import PresetSelector from './PresetSelector';
 import type { ExportFormat, ElevationSource } from '@/types';
 import type { TerrainPreset } from '../types/presets';
@@ -20,9 +21,11 @@ interface ExportPanelProps {
     enableWeightmaps: boolean;
   }) => void;
   disabled: boolean;
+  aiEnabled?: boolean;
 }
 
-const ExportPanel: React.FC<ExportPanelProps> = ({ onGenerate, disabled }) => {
+const ExportPanel: React.FC<ExportPanelProps> = ({ onGenerate, disabled, aiEnabled = false }) => {
+  const { t } = useTranslation();
   const [name, setName] = useState('my_terrain');
   const [resolution, setResolution] = useState(2048);
   const [exportFormats, setExportFormats] = useState<ExportFormat[]>(['unreal5']);
@@ -30,6 +33,7 @@ const ExportPanel: React.FC<ExportPanelProps> = ({ onGenerate, disabled }) => {
   const [enableRoads, setEnableRoads] = useState(true);
   const [enableBuildings, setEnableBuildings] = useState(true);
   const [enableWeightmaps, setEnableWeightmaps] = useState(true);
+  const [useAI, setUseAI] = useState(false);
   const [showPresets, setShowPresets] = useState(false);
 
   const handleGenerate = () => {
@@ -85,13 +89,13 @@ const ExportPanel: React.FC<ExportPanelProps> = ({ onGenerate, disabled }) => {
         className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-3 rounded-md hover:from-purple-700 hover:to-indigo-700 transition"
       >
         <Sparkles className="w-5 h-5" />
-        <span>Load Preset Template</span>
+        <span>{t('export.loadPreset')}</span>
       </button>
 
       {/* Terrain Name */}
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Terrain Name
+          {t('export.terrainName')}
         </label>
         <input
           type="text"
@@ -105,7 +109,7 @@ const ExportPanel: React.FC<ExportPanelProps> = ({ onGenerate, disabled }) => {
       {/* Resolution */}
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Heightmap Resolution
+          {t('export.heightmapResolution')}
         </label>
         <select
           value={resolution}
@@ -124,7 +128,7 @@ const ExportPanel: React.FC<ExportPanelProps> = ({ onGenerate, disabled }) => {
       {/* Export Formats */}
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Export Formats
+          {t('export.exportFormats')}
         </label>
         <div className="space-y-2">
           {(['unreal5', 'unity', 'gltf', 'geotiff'] as ExportFormat[]).map(format => (
@@ -144,7 +148,7 @@ const ExportPanel: React.FC<ExportPanelProps> = ({ onGenerate, disabled }) => {
       {/* Elevation Source */}
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Elevation Source
+          {t('export.elevationSource')}
         </label>
         <select
           value={elevationSource}
@@ -160,7 +164,7 @@ const ExportPanel: React.FC<ExportPanelProps> = ({ onGenerate, disabled }) => {
       {/* Features */}
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Features
+          {t('export.features')}
         </label>
         <div className="space-y-2">
           <label className="flex items-center cursor-pointer">
@@ -170,7 +174,7 @@ const ExportPanel: React.FC<ExportPanelProps> = ({ onGenerate, disabled }) => {
               onChange={(e) => setEnableRoads(e.target.checked)}
               className="rounded text-blue-600"
             />
-            <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Roads</span>
+            <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">{t('export.roads')}</span>
           </label>
           <label className="flex items-center cursor-pointer">
             <input
@@ -179,7 +183,7 @@ const ExportPanel: React.FC<ExportPanelProps> = ({ onGenerate, disabled }) => {
               onChange={(e) => setEnableBuildings(e.target.checked)}
               className="rounded text-blue-600"
             />
-            <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Buildings</span>
+            <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">{t('export.buildings')}</span>
           </label>
           <label className="flex items-center cursor-pointer">
             <input
@@ -188,10 +192,31 @@ const ExportPanel: React.FC<ExportPanelProps> = ({ onGenerate, disabled }) => {
               onChange={(e) => setEnableWeightmaps(e.target.checked)}
               className="rounded text-blue-600"
             />
-            <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Material Weightmaps</span>
+            <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">{t('export.weightmaps')}</span>
           </label>
         </div>
       </div>
+
+      {/* AI Generation - только если AI включен в настройках */}
+      {aiEnabled && (
+        <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+          <label className="flex items-center cursor-pointer p-3 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
+            <input
+              type="checkbox"
+              checked={useAI}
+              onChange={(e) => setUseAI(e.target.checked)}
+              className="rounded text-purple-600"
+            />
+            <Sparkles className="ml-2 w-5 h-5 text-purple-600 dark:text-purple-400" />
+            <span className="ml-2 text-sm font-medium text-gray-900 dark:text-white">{t('export.useAI')}</span>
+          </label>
+          {useAI && (
+            <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 ml-1">
+              {t('export.aiDescription')}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Generate Button */}
       <button
@@ -200,7 +225,7 @@ const ExportPanel: React.FC<ExportPanelProps> = ({ onGenerate, disabled }) => {
         className="w-full flex items-center justify-center space-x-2 bg-blue-600 text-white px-4 py-3 rounded-md hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition"
       >
         <Rocket className="w-5 h-5" />
-        <span>Generate Terrain</span>
+        <span>{t('export.generate')}</span>
       </button>
     </div>
   );

@@ -30,13 +30,10 @@ const Preview3D: React.FC<Preview3DProps> = ({ bbox, terrainData: _terrainData }
       try {
         // Dynamically import Cesium to avoid SSR issues
         const Cesium = await import('cesium');
-        
-        // Set Cesium ion access token (use your own token)
-        Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5N2UyMjcwOS00MDY1LTQxYjEtYjZjMy00YTU0ZTg1YmUwYmUiLCJpZCI6MTQyODk1LCJpYXQiOjE2ODY1NjE2Njl9.example';
 
-        // Create viewer
+        // Create viewer with basic 3D terrain (no Cesium Ion required)
         const viewer = new Cesium.Viewer(containerRef.current, {
-          terrainProvider: await Cesium.createWorldTerrainAsync(),
+          terrainProvider: new Cesium.EllipsoidTerrainProvider(),
           baseLayerPicker: false,
           geocoder: false,
           homeButton: false,
@@ -49,6 +46,9 @@ const Preview3D: React.FC<Preview3DProps> = ({ bbox, terrainData: _terrainData }
           shadows: true,
           shouldAnimate: false,
         });
+        
+        // Use default Bing Maps imagery (included with Cesium, no token needed for basic use)
+        // No need to replace imagery - using default
 
         // Enable lighting
         viewer.scene.globe.enableLighting = true;

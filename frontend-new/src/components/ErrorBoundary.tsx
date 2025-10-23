@@ -79,8 +79,8 @@ class ErrorBoundary extends Component<Props, State> {
               </div>
             </div>
 
-            {/* Error Details (Development Only) */}
-            {process.env.NODE_ENV === 'development' && this.state.error && (
+            {/* Error Details (Always show for debugging) */}
+            {this.state.error && (
               <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
                 <h2 className="text-sm font-semibold text-gray-700 mb-2">
                   Error Details (Development Mode):

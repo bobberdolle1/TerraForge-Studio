@@ -1,33 +1,69 @@
 # 🌍 TerraForge Studio
 
-**Enterprise-Grade Terrain Generation Platform**
+**Professional 3D Terrain Generator for Game Engines**
 
-[![Production Ready](https://img.shields.io/badge/status-production%20ready-success)](https://terraforge.studio)
-[![Version](https://img.shields.io/badge/version-4.0.0-blue)](https://github.com/terraforge/studio)
+[![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://python.org)
+[![React](https://img.shields.io/badge/react-18+-61DAFB.svg)](https://react.dev)
+[![Tauri](https://img.shields.io/badge/tauri-2.0+-FFC131.svg)](https://tauri.app)
+[![FastAPI](https://img.shields.io/badge/fastapi-0.100+-009688.svg)](https://fastapi.tiangolo.com)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Coverage](https://img.shields.io/badge/coverage-85%25-brightgreen)](tests)
 
-Generate realistic, production-ready terrain from real-world data with enterprise features, real-time collaboration, and AI-powered analysis.
+Создавайте реалистичные 3D ландшафты на основе реальных геоданных для Unreal Engine 5, Unity и других игровых движков.
 
----
-
-## ✨ Key Features
-
-🎮 **Game Engine Export** - Godot 4.x, Unity, Unreal Engine 5, glTF 2.0  
-🤝 **Real-time Collaboration** - Live cursors, CRDT sync, conflict resolution  
-🏢 **Enterprise Ready** - RBAC, SSO, audit logs, resource quotas  
-🤖 **AI/ML Integration** - Terrain classification, smart recommendations  
-⚡ **High Performance** - 600KB bundle, 2-3s load time, 85% test coverage  
-📊 **Analytics & Monitoring** - Performance dashboard, usage tracking  
+![TerraForge Studio](docs/images/screenshot.png)
 
 ---
 
-## 🚀 Quick Start
+## ✨ Возможности
 
-```bash
-# Clone repository
-git clone https://github.com/terraforge/studio.git
-cd studio
+### 🗺️ Картографирование
+- **Интерактивная 2D карта** - Leaflet с поддержкой OSM, спутниковых снимков, гибридного режима
+- **3D превью** - Cesium для предпросмотра рельефа в реальном времени
+- **Выделение областей** - Rectangle/Polygon инструменты с сохранением между сеансами
+- **Типы карт** - OpenStreetMap, Satellite, Hybrid (спутник + названия), Topographic
+
+### 🎮 Экспорт для движков
+- **Unreal Engine 5** - оптимизированные landscape (1009, 2017, 4033, 8129)
+- **Unity** - terrain heightmaps (513, 1025, 2049, 4097)
+- **GLTF 2.0** - универсальный 3D формат
+- **GeoTIFF** - для GIS и картографических приложений
+
+### 🤖 AI Интеграция (опционально)
+- **Qwen3-VL** - анализ местности по спутниковым снимкам
+- **Qwen3-Coder** - умная генерация конфигураций
+- **Ollama** - локальный запуск моделей через cloud API
+- **Автоанализ** - опциональный автоматический анализ при выборе области
+
+### ⚙️ Настройки и управление
+- **Data Sources** - интеграция с SentinelHub, OpenTopography, Azure Maps, Google Earth Engine
+- **Export Profiles** - настраиваемые профили для разных движков
+- **Локализация** - полная поддержка English/Русский
+- **Темы** - Light/Dark/Auto режимы  
+
+---
+
+## 🚀 Быстрый старт
+
+### Требования
+- Python 3.10+
+- Node.js 18+
+- Rust (для Tauri)
+
+### 1. Backend (FastAPI)
+
+```powershell
+cd TerraForge-Studio
+.venv\Scripts\activate  # Windows
+python -m uvicorn realworldmapgen.api.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+### 2. Frontend (React + Tauri)
+
+```powershell
+cd frontend-new
+npm install
+npm run build
+npm run tauri:dev
 
 # Frontend
 cd frontend-new && npm install && npm run dev
@@ -39,86 +75,85 @@ uvicorn realworldmapgen.api.main:app --reload
 # Visit http://localhost:5173
 ```
 
+**Смотрите [Руководство по быстрому старту](docs/QUICK_START.md) для подробных инструкций.**  
 **See [Quick Start Guide](docs/QUICK_START.md) for detailed instructions.**
 
 ---
 
-## 📚 Documentation
+## 📚 Документация / Documentation
 
-- **[Quick Start](docs/QUICK_START.md)** - Get running in 5 minutes
-- **[API Specification](docs/API_SPECIFICATION.md)** - Complete REST API docs
-- **[Deployment Guide](docs/DEPLOYMENT.md)** - Production deployment
-- **[Exporters Guide](docs/EXPORTERS_GUIDE.md)** - Game engine integration
-- **[Full Documentation](docs/README.md)** - Complete documentation index
-
----
-
-## 🎯 Technology Stack
-
-**Frontend**: React 18 + TypeScript + Vite + TailwindCSS  
-**Backend**: FastAPI (Python 3.11) + PostgreSQL + Redis  
-**Testing**: Vitest + Playwright + pytest (85% coverage)  
-**Infrastructure**: Docker + Kubernetes + GitHub Actions
+- **[Быстрый старт / Quick Start](docs/QUICK_START.md)** - Начните работу за 5 минут / Get running in 5 minutes
+- **[Руководство по сборке / Build Guide](BUILD.md)** - Сборка .exe и бинарников / Building .exe and binaries
+- **[Спецификация API / API Specification](docs/API_SPECIFICATION.md)** - Полная документация REST API / Complete REST API docs
+- **[Руководство по развертыванию / Deployment Guide](docs/DEPLOYMENT.md)** - Production развертывание / Production deployment
+- **[Руководство по экспортерам / Exporters Guide](docs/EXPORTERS_GUIDE.md)** - Интеграция с игровыми движками / Game engine integration
+- **[Полная документация / Full Documentation](docs/README.md)** - Индекс всей документации / Complete documentation index
 
 ---
 
-## 🎮 Export Formats
+## 🎯 Технологический стек / Technology Stack
 
-- **Godot 4.x** - `.tres` HeightMapShape3D
-- **Unity** - RAW heightmap format
-- **Unreal Engine 5** - PNG landscape
-- **glTF 2.0** - AR/VR with Draco compression
-- **Custom** - Build your own with Plugin SDK
-
----
-
-## 🏢 Enterprise Features
-
-✅ **RBAC** - 5 roles (Viewer, Creator, Editor, Admin, Owner)  
-✅ **SSO** - Google, Microsoft, GitHub integration  
-✅ **Audit Logs** - Complete compliance tracking  
-✅ **Resource Quotas** - Free, Starter, Pro, Enterprise plans  
-✅ **Rate Limiting** - API protection (per minute/hour/day)  
-✅ **Data Retention** - Automated cleanup policies  
+**Frontend / Фронтенд**: React 18 + TypeScript + Vite + TailwindCSS  
+**Backend / Бэкенд**: FastAPI (Python 3.10+) + Pydantic  
+**Maps / Карты**: Leaflet + Cesium  
+**Desktop / Десктоп**: Tauri 2.0  
+**AI / ИИ**: Ollama + Qwen3 models (опционально / optional)
 
 ---
 
-## 🔧 SDKs & Tools
+## 🎮 Форматы экспорта / Export Formats
 
-### Python SDK
-```python
-from terraforge import TerraForge
-
-client = TerraForge(api_key="your_key")
-terrain = client.generate_terrain(bbox=(48, 47, 2, 1))
-export = client.export_terrain(terrain.id, format="godot")
-```
-
-### CLI Tool
-```bash
-terraforge generate --bbox "48,47,2,1" --resolution 1024
-terraforge export --id trn_123 --format unity
-```
-
-**See [SDK Documentation](sdk/python/README.md) for more.**
+- **Unreal Engine 5** - PNG landscape (1009, 2017, 4033, 8129)
+- **Unity** - RAW heightmap (513, 1025, 2049, 4097)
+- **GLTF 2.0** - Универсальный 3D формат / Universal 3D format
+- **GeoTIFF** - Для GIS приложений / For GIS applications
 
 ---
 
-## 📊 Project Stats
+## 🎯 Использование / Usage
 
-- **90 Files Created**
-- **17,000+ Lines of Code**
-- **29 React Components**
-- **12 Core Services**
-- **9 Backend Modules**
-- **85% Test Coverage**
-- **100% Roadmap Complete**
+### 1. Выбор области / Select Area
+1. Откройте 2D Map Selector / Open 2D Map Selector
+2. Выберите тип карты (OSM/Satellite/Hybrid) / Choose map type
+3. Используйте Rectangle или Polygon / Use Rectangle or Polygon tool
+4. Нарисуйте область на карте / Draw area on map
+5. Выделение сохраняется автоматически / Selection is saved automatically
+
+### 2. Настройка экспорта / Configure Export
+1. Export Configuration → параметры / parameters
+2. Выберите формат (UE5/Unity/GLTF) / Choose format
+3. Настройте разрешение / Set resolution
+4. Включите нужные features / Enable features
+
+### 3. Генерация / Generation
+1. Нажмите Generate Terrain / Click Generate Terrain
+2. Следите за прогрессом / Monitor progress
+3. Скачайте результат / Download result  
 
 ---
 
-## 🤝 Contributing
+## 🤖 AI Ассистент / AI Assistant (опционально / optional)
 
-We welcome contributions! See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for guidelines.
+Для использования AI функций / To use AI features:
+
+1. Установите Ollama / Install Ollama: https://ollama.ai
+2. Запустите сервер / Start server: `ollama serve`
+3. Установите модели / Install models:
+   ```bash
+   ollama pull qwen3-vl:235b-cloud
+   ollama pull qwen3-coder:480b-cloud
+   ```
+4. Settings → AI Assistant → Enable → Save
+5. Страница перезагрузится автоматически / Page will reload automatically
+
+Подробнее / More info: [OLLAMA_SETUP.md](OLLAMA_SETUP.md)
+
+---
+
+## 🤝 Участие в разработке / Contributing
+
+Мы приветствуем вклад в проект! / We welcome contributions!  
+Смотрите / See [CONTRIBUTING.md](docs/CONTRIBUTING.md) для руководства / for guidelines.
 
 ```bash
 git clone https://github.com/your-username/terraforge-studio.git
@@ -129,25 +164,26 @@ git push origin feature/amazing-feature
 
 ---
 
-## 📄 License
+## 📄 Лицензия / License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License - смотрите / see [LICENSE](LICENSE) для деталей / for details.
 
 ---
 
-## 📞 Support
+## 📞 Поддержка / Support
 
-- **Documentation**: [docs/](docs/README.md)
+- **Документация / Documentation**: [docs/](docs/README.md)
 - **Discord**: https://discord.gg/terraforge
 - **Email**: support@terraforge.studio
-- **Issues**: https://github.com/terraforge/studio/issues
+- **Проблемы / Issues**: https://github.com/terraforge/studio/issues
 
 ---
 
 <div align="center">
 
+**Сделано с ❤️ командой TerraForge Studio**  
 **Built with ❤️ by TerraForge Studio Team**
 
-[Website](https://terraforge.studio) • [Docs](docs/README.md) • [API](docs/API_SPECIFICATION.md) • [Discord](https://discord.gg/terraforge)
+[Сайт / Website](https://terraforge.studio) • [Документация / Docs](docs/README.md) • [API](docs/API_SPECIFICATION.md) • [Discord](https://discord.gg/terraforge)
 
 </div>

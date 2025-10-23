@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Settings, Database, Sliders, FileText, Palette, HardDrive } from 'lucide-react';
+import { Settings, Database, Sliders, FileText, Palette, HardDrive, Brain } from 'lucide-react';
 import { settingsApi } from '@/services/settings-api';
 import type { UserSettings, SettingsUpdate } from '@/types/settings';
 
@@ -12,12 +12,13 @@ import GenerationTab from './GenerationTab';
 import ExportProfilesTab from './ExportProfilesTab';
 import UIPreferencesTab from './UIPreferencesTab';
 import CacheStorageTab from './CacheStorageTab';
+import AITab from './AITab';
 
 interface SettingsPageProps {
   onClose: () => void;
 }
 
-type TabId = 'sources' | 'generation' | 'export' | 'ui' | 'cache';
+type TabId = 'sources' | 'generation' | 'export' | 'ui' | 'cache' | 'ai';
 
 const SettingsPage: React.FC<SettingsPageProps> = ({ onClose }) => {
   const [activeTab, setActiveTab] = useState<TabId>('sources');
@@ -47,6 +48,13 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onClose }) => {
       setSettings(updated);
       // Show success message (could use toast library)
       alert('Settings saved successfully!');
+      
+      // Если изменились AI настройки, перезагрузить страницу для применения
+      if (updates.ai !== undefined) {
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      }
     } catch (error) {
       console.error('Failed to save settings:', error);
       alert('Failed to save settings');
@@ -69,6 +77,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onClose }) => {
     { id: 'sources' as TabId, label: 'Data Sources', icon: Database },
     { id: 'generation' as TabId, label: 'Generation', icon: Sliders },
     { id: 'export' as TabId, label: 'Export Profiles', icon: FileText },
+    { id: 'ai' as TabId, label: 'AI Assistant', icon: Brain },
     { id: 'ui' as TabId, label: 'UI & Language', icon: Palette },
     { id: 'cache' as TabId, label: 'Storage', icon: HardDrive },
   ];
@@ -142,6 +151,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onClose }) => {
               <UIPreferencesTab
                 ui={settings.ui}
                 onSave={(ui) => handleSave({ ui })}
+                saving={saving}
+              />
+            )}
+
+            {activeTab === 'ai' && (
+              <AITab
+                settings={settings.ai || { enabled: false, ollama_url: 'http://localhost:11434', vision_model: 'qwen3-vl:235b-cloud', coder_model: 'qwen3-coder:480b-cloud', auto_analyze: false, timeout_seconds: 120 }}
+                onSave={(ai) => handleSave({ ai })}
                 saving={saving}
               />
             )}
