@@ -173,17 +173,15 @@ MIT License - смотрите / see [LICENSE](LICENSE) для деталей / 
 ## 📞 Поддержка / Support
 
 - **Документация / Documentation**: [docs/](docs/README.md)
-- **Discord**: https://discord.gg/terraforge
-- **Email**: support@terraforge.studio
 - **Проблемы / Issues**: https://github.com/terraforge/studio/issues
 
 ---
 
 <div align="center">
 
-**Сделано с ❤️ командой TerraForge Studio**  
-**Built with ❤️ by TerraForge Studio Team**
+**Сделано с ❤️ bobberdolle 1**  
+**Built with ❤️ by bobberdolle1**
 
-[Сайт / Website](https://terraforge.studio) • [Документация / Docs](docs/README.md) • [API](docs/API_SPECIFICATION.md) • [Discord](https://discord.gg/terraforge)
+• [Документация / Docs](docs/README.md) • [API](docs/API_SPECIFICATION.md) • 
 
 </div>
