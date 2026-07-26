@@ -272,8 +272,16 @@ async def get_data_sources() -> Dict[str, Any]:
             }
         },
         "vector": {
+            "overpass": {
+                "name": "OpenStreetMap (Overpass)",
+                "type": "Vector (roads, buildings, land use)",
+                "coverage": "Global",
+                "cost": "Free",
+                "available": "overpass" in configured,
+                "requires_api_key": False,
+            },
             "openstreetmap": {
-                "name": "OpenStreetMap",
+                "name": "OpenStreetMap (osmnx)",
                 "type": "Vector (roads, buildings, POI)",
                 "coverage": "Global",
                 "cost": "Free",

@@ -146,6 +146,20 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------
     # OpenStreetMap
     # ------------------------------------------------------------------
+    #: Vector features (roads, buildings) over plain HTTP via Overpass.
+    #: Needs no API key and no geospatial stack, so it is the default path.
+    overpass_enabled: bool = True
+    overpass_endpoints: StrList = [
+        "https://overpass-api.de/api/interpreter",
+        "https://lz4.overpass-api.de/api/interpreter",
+        "https://overpass.kumi.systems/api/interpreter",
+    ]
+    overpass_timeout: int = 90
+    #: Overpass is a shared public service; larger areas are skipped rather
+    #: than submitted.
+    overpass_max_area_km2: float = 25.0
+
+    #: The osmnx-backed path. Richer, but requires the optional extras.
     osm_enabled: bool = True
     osm_user_agent: str = "TerraForge-Studio/2.0"
     osm_cache_enabled: bool = True
@@ -234,6 +248,7 @@ class Settings(BaseSettings):
         "cors_allow_methods",
         "cors_allow_headers",
         "elevation_source_priority",
+        "overpass_endpoints",
         "api_keys",
         mode="before",
     )
