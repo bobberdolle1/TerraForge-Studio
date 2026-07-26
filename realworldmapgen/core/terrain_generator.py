@@ -5,13 +5,14 @@ Main orchestrator for terrain generation with multi-source and multi-format supp
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -36,8 +37,8 @@ from ..models import (
     TaskStatus,
     VectorSummary,
 )
-from .cache_manager import get_cache_manager
-from .plugin_system import get_plugin_registry
+from .cache_manager import get_configured_cache_manager
+from .plugin_system import PluginHookType, get_plugin_registry
 from .sources import (
     AzureMapsSource,
     EarthEngineSource,
@@ -85,17 +86,15 @@ class TerraForgeGenerator:
 
         self.sources = self._initialize_sources()
 
-        self.cache_manager = get_cache_manager(
-            str(settings.cache_dir),
-            settings.cache_max_size_gb,
-            settings.cache_expiry_days,
-        )
+        self.cache_manager = get_configured_cache_manager()
 
         self.plugin_registry = get_plugin_registry()
         self.plugin_registry.load_from_directory(Path(settings.plugin_dir))
 
         # Task tracking
         self.active_tasks: Dict[str, GenerationStatus] = {}
+        #: Per-task progress observers, keyed by task id.
+        self._progress_observers: Dict[str, Optional[Callable[[float, str], Awaitable[None]]]] = {}
 
         logger.info("TerraForge Generator initialized")
         logger.info("Available sources: %s", list(self.sources.keys()))
@@ -201,17 +200,29 @@ class TerraForgeGenerator:
         )
 
     def _advance(self, status: GenerationStatus, step: str, progress: float) -> None:
-        """Record progress on a task and log the transition."""
+        """Record progress on a task, notify observers, and log the transition."""
         status.current_step = step
         status.progress = progress
         status.updated_at = _utcnow()
         logger.info("[%s] %.0f%% - %s", status.task_id[:8], progress, step)
 
+        observer = self._progress_observers.get(status.task_id)
+        if observer is not None:
+            # Fire and forget: a slow or broken observer must not stall or
+            # fail the generation it is reporting on.
+            try:
+                asyncio.get_running_loop().create_task(observer(progress, step))
+            except RuntimeError:
+                pass
+
     # ------------------------------------------------------------------
     # Generation
     # ------------------------------------------------------------------
     async def generate_terrain(
-        self, request: MapGenerationRequest, task_id: Optional[str] = None
+        self,
+        request: MapGenerationRequest,
+        task_id: Optional[str] = None,
+        on_progress: Optional[Callable[[float, str], Awaitable[None]]] = None,
     ) -> GenerationStatus:
         """
         Generate terrain from request.
@@ -220,6 +231,8 @@ class TerraForgeGenerator:
             request: Terrain generation request
             task_id: Task ID of an already-registered task; a new one is
                 created when omitted.
+            on_progress: Optional coroutine notified on each step, used by the
+                batch queue to mirror progress onto its own job records.
 
         Returns:
             Generation status. Failures are reported through the returned
@@ -233,6 +246,7 @@ class TerraForgeGenerator:
 
         status.status = TaskStatus.PROCESSING
         started = time.perf_counter()
+        self._progress_observers[status.task_id] = on_progress
         self._emit_event(
             "generation.started",
             {"task_id": task_id, "name": request.name, "resolution": request.resolution},
@@ -262,6 +276,7 @@ class TerraForgeGenerator:
                     self._advance(status, "Complete (from cache)", 100.0)
                     status.message = f"Reused cached result for '{request.name}'"
                     logger.info("Cache hit for '%s' (%s)", request.name, cache_key[:16])
+                    self._run_hook(PluginHookType.ON_CACHE_HIT, cache_key, cached)
                     self._emit_event(
                         "generation.completed",
                         {
@@ -272,6 +287,8 @@ class TerraForgeGenerator:
                         },
                     )
                     return status
+
+            self._run_hook(PluginHookType.PRE_PROCESS, request)
 
             # --- Step 1: elevation ---------------------------------------
             self._advance(status, "Acquiring elevation data", 10.0)
@@ -284,6 +301,17 @@ class TerraForgeGenerator:
                     "Failed to acquire elevation data from any configured source. "
                     "Check network connectivity or enable a data source in .env"
                 )
+
+            # A plugin may return a modified heightmap; anything else is ignored.
+            adjusted = self._run_hook(
+                PluginHookType.ON_ELEVATION_ACQUIRED,
+                elevation_data,
+                provenance.source,
+                {"synthetic": provenance.synthetic, "resolution": request.resolution},
+            )
+            if isinstance(adjusted, np.ndarray) and adjusted.shape == elevation_data.shape:
+                logger.info("Plugin adjusted elevation data")
+                elevation_data = adjusted
 
             if provenance.synthetic:
                 status.add_warning(
@@ -303,6 +331,12 @@ class TerraForgeGenerator:
                     )
                 else:
                     vector_source, organized_vectors = fetched
+                    self._run_hook(
+                        PluginHookType.ON_VECTOR_ACQUIRED,
+                        organized_vectors,
+                        vector_source,
+                        {"name": request.name},
+                    )
                     vector_summary = self._write_vectors(
                         vector_source, organized_vectors, output_dir
                     )
@@ -326,6 +360,12 @@ class TerraForgeGenerator:
                 weightmaps=weightmaps,
                 roads=organized_vectors.get("roads") if organized_vectors else None,
                 buildings=organized_vectors.get("buildings") if organized_vectors else None,
+            )
+
+            self._run_hook(
+                PluginHookType.ON_TERRAIN_GENERATED,
+                terrain_data,
+                {"name": request.name, "resolution": request.resolution},
             )
 
             # --- Step 5: export ------------------------------------------
@@ -365,6 +405,10 @@ class TerraForgeGenerator:
                 duration_seconds=round(time.perf_counter() - started, 3),
             )
 
+            self._run_hook(
+                PluginHookType.POST_PROCESS, result, {"name": request.name, "task_id": task_id}
+            )
+
             if cache_key:
                 self._store_in_cache(cache_key, result, output_dir)
 
@@ -377,6 +421,7 @@ class TerraForgeGenerator:
                 f"({len(successful)}/{len(exports)} formats exported)"
             )
 
+            self._progress_observers.pop(status.task_id, None)
             logger.info("Terrain generation completed: %s", request.name)
             self._emit_event(
                 "generation.completed",
@@ -393,6 +438,7 @@ class TerraForgeGenerator:
             return status
 
         except Exception as exc:
+            self._progress_observers.pop(status.task_id, None)
             logger.error("Terrain generation failed: %s", exc, exc_info=True)
             status.status = TaskStatus.FAILED
             status.error = str(exc)
@@ -413,6 +459,24 @@ class TerraForgeGenerator:
             emit(name, data)
         except Exception as exc:  # noqa: BLE001
             logger.debug("Could not emit webhook event %s: %s", name, exc)
+
+    # ------------------------------------------------------------------
+    # Plugins
+    # ------------------------------------------------------------------
+    def _run_hook(self, hook_type: str, *args: Any, **kwargs: Any) -> Any:
+        """
+        Invoke plugin hooks for a stage.
+
+        Plugins were loaded, listed and toggled through the API, but no hook
+        was ever executed, so a plugin could not affect anything. Failures are
+        contained by the registry; this wrapper additionally makes sure a
+        misbehaving plugin cannot abort a generation.
+        """
+        try:
+            return self.plugin_registry.execute_hook(hook_type, *args, **kwargs)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Plugin hook %s failed: %s", hook_type, exc)
+            return None
 
     # ------------------------------------------------------------------
     # Result cache
@@ -752,6 +816,14 @@ class TerraForgeGenerator:
         results: List[ExportResult] = []
         for fmt in ordered:
             target_dir = output_dir / fmt.value
+            # Documented as "called before exporting to a specific format", so
+            # it fires once per target rather than once for the whole batch.
+            self._run_hook(
+                PluginHookType.ON_EXPORT,
+                terrain_data,
+                fmt.value,
+                {"output_dir": str(target_dir)},
+            )
             try:
                 files, directory = await self._run_exporter(fmt, terrain_data, output_dir)
                 results.append(

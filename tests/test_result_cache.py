@@ -232,3 +232,67 @@ def test_a_corrupt_entry_falls_back_to_regenerating(client, monkeypatch):
     payload = _generate(client, "corrupt_entry")
     assert payload["status"] == "completed"
     assert payload["result"]["cached"] is False
+
+
+# ---------------------------------------------------------------------------
+# Batch progress
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_batch_jobs_report_real_progress():
+    """
+    Queue jobs must reflect generation progress.
+
+    update_job_progress was never called, so /api/batch/jobs and the queue UI
+    showed a progress bar permanently stuck at 0%.
+    """
+    from realworldmapgen.core.generator_provider import get_generator
+    from realworldmapgen.core.queue_manager import queue_manager
+
+    generator = get_generator()
+    seen: list[float] = []
+
+    async def observer(progress: float, step: str) -> None:
+        seen.append(progress)
+
+    request = MapGenerationRequest(
+        name="progress_run",
+        bbox=BBOX,
+        resolution=128,
+        export_formats=["unity"],
+        enable_roads=False,
+        enable_buildings=False,
+    )
+
+    status = await generator.generate_terrain(request, on_progress=observer)
+    assert status.status == "completed", status.error
+
+    # Let the fire-and-forget observer tasks run.
+    import asyncio
+
+    await asyncio.sleep(0)
+
+    assert seen, "no progress was reported"
+    assert max(seen) == 100.0
+    assert seen == sorted(seen), "progress must not go backwards"
+
+    queue_manager.jobs.clear()
+
+
+@pytest.mark.asyncio
+async def test_a_failing_observer_does_not_break_generation():
+    from realworldmapgen.core.generator_provider import get_generator
+
+    async def broken_observer(progress: float, step: str) -> None:
+        raise RuntimeError("observer is broken")
+
+    request = MapGenerationRequest(
+        name="broken_observer",
+        bbox=BBOX,
+        resolution=128,
+        export_formats=["unity"],
+        enable_roads=False,
+        enable_buildings=False,
+    )
+
+    status = await get_generator().generate_terrain(request, on_progress=broken_observer)
+    assert status.status == "completed", status.error

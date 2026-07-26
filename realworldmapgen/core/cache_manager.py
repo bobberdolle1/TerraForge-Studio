@@ -288,3 +288,21 @@ def get_cache_manager(
     """
     return TerrainCacheManager(Path(cache_dir), max_cache_size_gb, max_age_days)
 
+
+def get_configured_cache_manager() -> TerrainCacheManager:
+    """
+    The cache manager for the configured directory and limits.
+
+    Every caller must go through this: get_cache_manager is memoised on its
+    arguments, so calling it with different ones (or with none, defaulting to
+    ./cache regardless of CACHE_DIR) yields a second instance whose in-memory
+    metadata silently diverges from the first.
+    """
+    from ..config import settings
+
+    return get_cache_manager(
+        str(settings.cache_dir),
+        settings.cache_max_size_gb,
+        settings.cache_expiry_days,
+    )
+
