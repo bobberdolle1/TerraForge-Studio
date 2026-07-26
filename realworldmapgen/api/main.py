@@ -18,6 +18,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from ..config import ensure_directories, settings
 from ..core.generator_provider import get_generator
+from ..middleware.api_key import APIKeyMiddleware
 from ..middleware.rate_limiter import RateLimitConfig, RateLimiter, RateLimitMiddleware
 from ..models import GenerationStatus, MapGenerationRequest, TaskStatus
 from ..packaging import create_map_archive
@@ -139,6 +140,11 @@ if settings.rate_limit_enabled:
             )
         ),
     )
+
+# API_KEY_ENABLED / API_KEYS were documented in .env.example while nothing
+# read them. The gate is attached here so setting them has an effect.
+if settings.api_key_enabled:
+    app.add_middleware(APIKeyMiddleware, api_keys=settings.api_keys)
 
 for router in (
     health_router,

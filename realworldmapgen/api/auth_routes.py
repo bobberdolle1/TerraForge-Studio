@@ -175,15 +175,24 @@ async def update_user(
     if not current_user:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
+    is_admin = current_user.role == "admin"
+
     # Can only update self unless admin
-    if current_user.user_id != user_id and current_user.role != "admin":
+    if current_user.user_id != user_id and not is_admin:
         raise HTTPException(status_code=403, detail="Permission denied")
+
+    updates = request.model_dump(exclude_unset=True)
+
+    # Role is an administrative field. Without this check a user could grant
+    # themselves admin by PATCHing their own record, since the rule above
+    # allows self-updates.
+    if "role" in updates and not is_admin:
+        raise HTTPException(status_code=403, detail="Only an admin can change roles")
 
     try:
         from ..core.auth_manager import get_auth_manager
 
         auth = get_auth_manager()
-        updates = request.model_dump(exclude_unset=True)
 
         success = auth.update_user(user_id, updates)
 
