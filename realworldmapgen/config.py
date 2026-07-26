@@ -231,6 +231,19 @@ class Settings(BaseSettings):
     api_key_enabled: bool = False
     api_keys: StrList = []
 
+    #: Where user accounts are persisted. Deliberately outside the cache
+    #: directory, which callers may reasonably clear.
+    auth_storage_file: Path = Path("data/users.json")
+
+    #: Where the settings UI persists its configuration, including the
+    #: credentials it encrypts.
+    settings_storage_file: Path = Path("data/settings.json")
+
+    #: The Fernet key that encrypts stored credentials. Generated on first use
+    #: and never regenerated; losing it means stored credentials cannot be
+    #: decrypted and have to be re-entered.
+    secret_key_file: Path = Path("data/.secret_key")
+
     rate_limit_enabled: bool = True
     rate_limit_per_minute: int = 60
     rate_limit_per_hour: int = 1000

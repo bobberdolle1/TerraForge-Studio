@@ -101,11 +101,35 @@ Google Earth Engine requires a service account and JSON key file. See [Google Ea
 
 **Encryption:**
 - All API keys are **encrypted** using Fernet (symmetric encryption)
-- Encryption key stored in `data/.secret_key` (never commit this!)
+- The encryption key is generated at random on first use and stored in
+  `data/.secret_key`, created with `0600` permissions (never commit this!)
 - Keys encrypted before saving to `data/settings.json`
+
+Both paths are configurable, so the files can live outside the working
+directory:
+
+```bash
+SETTINGS_STORAGE_FILE=data/settings.json
+SECRET_KEY_FILE=data/.secret_key
+```
+
+> **⚠️ Upgrading from a build before the random key**
+>
+> The key used to be derived from a password and salt hardcoded in the source,
+> so every install shared one key and anyone with a copy of `settings.json`
+> could decrypt it without the key file. If your `data/.secret_key` was created
+> by such a build, the credentials in it should be considered exposed:
+>
+> ```bash
+> rm data/.secret_key        # a fresh random key is generated on next start
+> ```
+>
+> Then re-enter each API key in the settings UI, and rotate any key that was
+> stored under the old scheme at the provider that issued it.
 
 **Best Practices:**
 - Never share your `data/.secret_key` file
+- Back it up: without it, stored credentials cannot be decrypted
 - Add `data/` to `.gitignore`
 - Use environment variables in production
 - Rotate keys regularly
@@ -394,7 +418,11 @@ poetry run uvicorn realworldmapgen.api.main:app --log-level debug
 
 ### Encryption Errors
 
-If you see decryption errors:
+Decryption returns an empty string rather than raising, so a corrupted or
+mismatched key shows up as blank credentials instead of a crash.
+
+If you see decryption errors, or credentials come back empty after restoring a
+backup, the key no longer matches the stored data:
 
 ```bash
 # Delete encryption key (will need to re-enter all keys)
@@ -402,6 +430,9 @@ rm data/.secret_key
 
 # Restart application
 ```
+
+A new random key is generated on the next start; existing values in
+`settings.json` become undecryptable, so re-enter them in the settings UI.
 
 ---
 

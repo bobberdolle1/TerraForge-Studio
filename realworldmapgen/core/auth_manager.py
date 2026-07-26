@@ -4,6 +4,7 @@ Multi-user support infrastructure
 """
 
 import hashlib
+import hmac
 import json
 import logging
 import secrets
@@ -12,6 +13,54 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
+
+#: PBKDF2 work factor. High enough to make offline cracking expensive, low
+#: enough to keep a login well under a tenth of a second.
+PBKDF2_ITERATIONS = 260_000
+PBKDF2_ALGORITHM = "pbkdf2_sha256"
+
+
+def hash_password(password: str, *, iterations: int = PBKDF2_ITERATIONS) -> str:
+    """
+    Derive a storable password hash.
+
+    Uses PBKDF2-HMAC-SHA256 with a random per-user salt. Plain SHA-256 was used
+    before: unsalted and fast by design, so a stolen store could be attacked
+    with rainbow tables or brute forced at enormous rates.
+    """
+    salt = secrets.token_bytes(16)
+    derived = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, iterations)
+    return f"{PBKDF2_ALGORITHM}${iterations}${salt.hex()}${derived.hex()}"
+
+
+def verify_password(password: str, stored: Optional[str]) -> tuple[bool, bool]:
+    """
+    Check a password against a stored hash.
+
+    Returns ``(is_valid, needs_upgrade)``. Legacy unsalted SHA-256 hashes are
+    still accepted so existing accounts keep working, and are flagged for
+    rehashing on the next successful login.
+    """
+    if not stored:
+        return False, False
+
+    parts = stored.split("$")
+
+    if len(parts) == 4 and parts[0] == PBKDF2_ALGORITHM:
+        _, raw_iterations, salt_hex, expected = parts
+        try:
+            iterations = int(raw_iterations)
+            salt = bytes.fromhex(salt_hex)
+        except ValueError:
+            return False, False
+        derived = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, iterations)
+        # Constant-time: a plain != leaks how much of the digest matched.
+        return hmac.compare_digest(derived.hex(), expected), False
+
+    # Legacy: bare hex digest of an unsalted SHA-256.
+    legacy = hashlib.sha256(password.encode()).hexdigest()
+    return hmac.compare_digest(legacy, stored), True
+
 
 
 class User:
@@ -34,7 +83,12 @@ class User:
         self.is_active = True
 
     def to_dict(self) -> Dict:
-        """Convert to dictionary"""
+        """
+        Public representation, safe to return from the API.
+
+        Deliberately excludes the password hash: this is what /api/auth/me and
+        the user list return.
+        """
         return {
             "user_id": self.user_id,
             "username": self.username,
@@ -44,6 +98,18 @@ class User:
             "last_login": self.last_login,
             "is_active": self.is_active,
         }
+
+    def to_record(self) -> Dict:
+        """
+        Full representation for on-disk storage.
+
+        Persistence used to go through to_dict(), which omits the password
+        hash, so hashes were never written. Every account was locked out after
+        a restart, with no reset path.
+        """
+        record = self.to_dict()
+        record["password_hash"] = getattr(self, "_password_hash", None)
+        return record
 
     @classmethod
     def from_dict(cls, data: Dict) -> 'User':
@@ -57,6 +123,7 @@ class User:
         )
         user.last_login = data.get("last_login")
         user.is_active = data.get("is_active", True)
+        user._password_hash = data.get("password_hash")
         return user
 
 
@@ -85,14 +152,21 @@ class AuthManager:
     Authentication and session management
     """
 
-    def __init__(self, storage_file: Path = Path("./cache/users.json")):
+    def __init__(self, storage_file: Optional[Path] = None):
         """
         Initialize auth manager
 
         Args:
-            storage_file: File to store user data
+            storage_file: File to store user data. Defaults to the data
+                directory rather than the cache directory, which callers may
+                reasonably clear.
         """
-        self.storage_file = storage_file
+        if storage_file is not None:
+            self.storage_file = Path(storage_file)
+        else:
+            from ..config import settings
+
+            self.storage_file = Path(settings.auth_storage_file)
         self.users: Dict[str, User] = {}
         self.sessions: Dict[str, Session] = {}
         self._load_users()
@@ -117,7 +191,7 @@ class AuthManager:
             self.storage_file.parent.mkdir(parents=True, exist_ok=True)
             data = {
                 "users": {
-                    user_id: user.to_dict()
+                    user_id: user.to_record()
                     for user_id, user in self.users.items()
                 }
             }
@@ -157,9 +231,7 @@ class AuthManager:
             # Create user
             user = User(user_id, username, email, role)
 
-            # Store password hash (in production, use proper password hashing like bcrypt)
-            password_hash = hashlib.sha256(password.encode()).hexdigest()
-            user._password_hash = password_hash
+            user._password_hash = hash_password(password)
 
             self.users[user_id] = user
             self._save_users()
@@ -197,11 +269,18 @@ class AuthManager:
                 logger.warning(f"User inactive: {username}")
                 return None
 
-            # Verify password (in production, use proper comparison)
-            password_hash = hashlib.sha256(password.encode()).hexdigest()
-            if getattr(user, '_password_hash', None) != password_hash:
+            is_valid, needs_upgrade = verify_password(
+                password, getattr(user, "_password_hash", None)
+            )
+            if not is_valid:
                 logger.warning(f"Invalid password for user: {username}")
                 return None
+
+            if needs_upgrade:
+                # Legacy unsalted hash: replace it now that the plaintext is
+                # known to be correct.
+                user._password_hash = hash_password(password)
+                logger.info(f"Upgraded password hash for user: {username}")
 
             # Create session
             session_id = secrets.token_urlsafe(32)
@@ -269,16 +348,38 @@ class AuthManager:
         """Get all users"""
         return list(self.users.values())
 
+    #: Fields update_user may change. Anything else - user_id, username,
+    #: created_at, the password hash - is not settable this way.
+    UPDATABLE_FIELDS = frozenset({"email", "role", "is_active"})
+
     def update_user(self, user_id: str, updates: Dict) -> bool:
-        """Update user information"""
+        """
+        Update user information.
+
+        Only whitelisted fields are applied. The previous implementation did
+        setattr for any attribute that existed on the object, which made the
+        method as privileged as whatever called it.
+        """
         user = self.users.get(user_id)
         if not user:
             return False
 
         for key, value in updates.items():
-            if hasattr(user, key):
+            if key in self.UPDATABLE_FIELDS:
                 setattr(user, key, value)
+            else:
+                logger.warning("Ignoring non-updatable field %r for user %s", key, user_id)
 
+        self._save_users()
+        return True
+
+    def set_password(self, user_id: str, password: str) -> bool:
+        """Set a user's password, hashing it with the current KDF."""
+        user = self.users.get(user_id)
+        if not user:
+            return False
+
+        user._password_hash = hash_password(password)
         self._save_users()
         return True
 

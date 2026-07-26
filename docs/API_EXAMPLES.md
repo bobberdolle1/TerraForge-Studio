@@ -19,6 +19,7 @@ Base URL in these examples: `http://localhost:8000`
 - [Vector data (roads and buildings)](#vector-data-roads-and-buildings)
 - [Testing a data source](#testing-a-data-source)
 - [Webhooks](#webhooks)
+- [Authentication and users](#authentication-and-users)
 - [Rate limiting](#rate-limiting)
 
 ---
@@ -441,6 +442,201 @@ and they are deliberately distinct:
 A rejected key returns `success: false` with an explicit reason rather than a
 green result. A disabled or unconfigured source reports `reachable: null`,
 which is neither a pass nor a failure and should not be shown as an error.
+
+---
+
+## Authentication and users
+
+Accounts are optional: terrain generation, downloads and vector queries all
+work unauthenticated. Authentication exists for multi-user deployments, where
+it separates rate-limit budgets and gates the administrative endpoints.
+
+### Register
+
+```bash
+read -rs TERRAFORGE_PASSWORD          # keep the password out of your shell history
+
+curl -X POST http://localhost:8000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d "$(jq -n --arg p "$TERRAFORGE_PASSWORD" \
+        '{username: "alice", email: "alice@example.com", password: $p}')"
+```
+
+```json
+{
+  "success": true,
+  "message": "User registered successfully",
+  "user": {
+    "user_id": "jj62qGXqQtuWUa_EIwZkOA",
+    "username": "alice",
+    "email": "alice@example.com",
+    "role": "user",
+    "created_at": "2026-07-26T22:48:23.503329",
+    "last_login": null,
+    "is_active": true
+  }
+}
+```
+
+New accounts always get the `user` role. `admin` is never self-assignable —
+see [Roles](#roles) below.
+
+### Log in
+
+```bash
+curl -X POST http://localhost:8000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d "$(jq -n --arg p "$TERRAFORGE_PASSWORD" \
+        '{username: "alice", password: $p}')"
+```
+
+```json
+{
+  "success": true,
+  "message": "Login successful",
+  "session": {
+    "token": "JSgCtxNuFa5yTJI282opENQ8CiDEVtSNrhzyA45bjWs",
+    "expires_at": "2026-07-27T22:48:23.652318"
+  },
+  "user": { "user_id": "jj62qGXqQtuWUa_EIwZkOA", "role": "user", "...": "..." }
+}
+```
+
+Sessions last 24 hours and are refreshed on each authenticated request. A bad
+password returns **401** `{"detail": "Invalid username or password"}` — the
+same response as an unknown username, so the endpoint does not reveal which
+accounts exist.
+
+### Authenticated requests
+
+Pass the session token as a bearer token:
+
+```bash
+curl http://localhost:8000/api/auth/me \
+  -H "Authorization: Bearer JSgCtxNuFa5yTJI282opENQ8CiDEVtSNrhzyA45bjWs"
+```
+
+```json
+{
+  "user": {
+    "user_id": "jj62qGXqQtuWUa_EIwZkOA",
+    "username": "alice",
+    "email": "alice@example.com",
+    "role": "user",
+    "created_at": "2026-07-26T22:48:23.503329",
+    "last_login": "2026-07-26T22:48:23.652351",
+    "is_active": true
+  }
+}
+```
+
+Without a valid token the endpoint returns **401** `{"detail": "Not
+authenticated"}`. User payloads never include the password hash.
+
+### Log out
+
+```bash
+curl -X POST http://localhost:8000/api/auth/logout \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+```json
+{ "success": true, "message": "Logged out successfully" }
+```
+
+The token is invalidated immediately; reusing it returns **401**.
+
+### Updating an account
+
+A user may update their own record; admins may update anyone's:
+
+```bash
+curl -X PATCH http://localhost:8000/api/auth/users/$USER_ID \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"email": "alice.new@example.com"}'
+```
+
+```json
+{ "success": true, "message": "User updated successfully" }
+```
+
+Only `email`, `role` and `is_active` are writable. `username`, `user_id`,
+`created_at` and the password hash are ignored if sent.
+
+### Roles
+
+| Role | Can |
+|------|-----|
+| `user` | manage own account |
+| `admin` | additionally list, update and delete any user, change roles, clean up sessions |
+
+`role` is an administrative field. A non-admin sending it gets **403**, whether
+or not the target is their own account:
+
+```bash
+curl -X PATCH http://localhost:8000/api/auth/users/$USER_ID \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"role": "admin"}'
+```
+
+```json
+{ "detail": "Only an admin can change roles" }
+```
+
+Admin-only endpoints return **403** `{"detail": "Admin access required"}`:
+
+```
+GET    /api/auth/users
+DELETE /api/auth/users/{user_id}
+POST   /api/auth/sessions/cleanup
+```
+
+The first admin has to be promoted out of band — start a Python shell against
+the same storage file:
+
+```python
+from realworldmapgen.core.auth_manager import get_auth_manager
+
+auth = get_auth_manager()
+user = next(u for u in auth.list_users() if u.username == "alice")
+auth.update_user(user.user_id, {"role": "admin"})
+```
+
+`set_password(user_id, password)` on the same object is the reset path for a
+forgotten password.
+
+### Storage and password hashing
+
+Accounts live in a JSON file, outside the cache directory so that clearing the
+cache never destroys credentials:
+
+```bash
+AUTH_STORAGE_FILE=data/users.json
+```
+
+Passwords are stored as PBKDF2-HMAC-SHA256 with a random 16-byte per-user salt
+and 260,000 iterations, in the format
+`pbkdf2_sha256$<iterations>$<salt-hex>$<digest-hex>`:
+
+```json
+{
+  "users": {
+    "jj62qGXqQtuWUa_EIwZkOA": {
+      "username": "alice",
+      "role": "user",
+      "password_hash": "pbkdf2_sha256$260000$ea3cea93d6f4cd43...$db70818694177de2..."
+    }
+  }
+}
+```
+
+Accounts created by earlier builds carry a bare SHA-256 digest. They still
+authenticate, and are transparently rehashed to PBKDF2 on the next successful
+login — no reset is required. Because those digests were unsalted, treat any
+password used before the upgrade as exposed if the file was ever readable by
+someone else.
 
 ---
 

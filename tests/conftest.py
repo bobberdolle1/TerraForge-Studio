@@ -37,6 +37,18 @@ os.environ.update(
         "OVERPASS_ENABLED": "false",
         "ALLOW_SYNTHETIC_FALLBACK": "true",
         "ENVIRONMENT": "development",
+        # The middleware stays attached so it remains testable, but the budget
+        # is raised far beyond what the suite generates: every request shares
+        # one client identity, and the suite outgrew the 60/min default.
+        # test_rate_limiter lowers the limit itself for its own assertions.
+        "RATE_LIMIT_PER_MINUTE": "100000",
+        "RATE_LIMIT_PER_HOUR": "100000",
+        "RATE_LIMIT_PER_DAY": "100000",
+        # Keep everything the app persists inside the temporary root, so a
+        # test run never writes into the checkout.
+        "AUTH_STORAGE_FILE": str(_TEST_ROOT / "data" / "users.json"),
+        "SETTINGS_STORAGE_FILE": str(_TEST_ROOT / "data" / "settings.json"),
+        "SECRET_KEY_FILE": str(_TEST_ROOT / "data" / ".secret_key"),
     }
 )
 

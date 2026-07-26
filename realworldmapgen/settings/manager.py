@@ -21,15 +21,22 @@ logger = logging.getLogger(__name__)
 class SettingsManager:
     """Manages user settings with secure credential storage"""
 
-    def __init__(self, settings_file: Path = Path("data/settings.json")):
+    def __init__(self, settings_file: Optional[Path] = None):
         """
         Initialize settings manager.
 
         Args:
-            settings_file: Path to settings JSON file
+            settings_file: Path to settings JSON file. Defaults to
+                :attr:`~realworldmapgen.config.Settings.settings_storage_file`.
         """
-        self.settings_file = settings_file
-        self.settings_file.parent.mkdir(parents=True, exist_ok=True)
+        if settings_file is not None:
+            self.settings_file = Path(settings_file)
+        else:
+            from ..config import settings as app_settings
+
+            self.settings_file = Path(app_settings.settings_storage_file)
+        # The directory is created when something is actually written, not on
+        # construction: importing this module must not touch the filesystem.
         self._settings: Optional[UserSettings] = None
 
     def load(self) -> UserSettings:
@@ -69,6 +76,7 @@ class SettingsManager:
             data = self._encrypt_credentials(data)
 
             # Save to file
+            self.settings_file.parent.mkdir(parents=True, exist_ok=True)
             with open(self.settings_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
 

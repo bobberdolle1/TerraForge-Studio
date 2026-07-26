@@ -4,55 +4,69 @@ Uses Fernet (symmetric encryption) from cryptography library
 """
 
 import base64
+import logging
 import os
 from pathlib import Path
 from typing import Optional
 
 from cryptography.fernet import Fernet
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
+logger = logging.getLogger(__name__)
 
 
 class SecretManager:
     """Manages encryption and decryption of sensitive data"""
 
-    def __init__(self, key_file: Path = Path("data/.secret_key")):
+    def __init__(self, key_file: Optional[Path] = None):
         """
         Initialize secret manager.
 
         Args:
-            key_file: Path to store encryption key
+            key_file: Path to store encryption key. Defaults to
+                :attr:`~realworldmapgen.config.Settings.secret_key_file`.
         """
-        self.key_file = key_file
-        self.key_file.parent.mkdir(parents=True, exist_ok=True)
+        if key_file is not None:
+            self.key_file = Path(key_file)
+        else:
+            from ..config import settings
+
+            self.key_file = Path(settings.secret_key_file)
         self._cipher = None
 
     def _get_or_create_key(self) -> bytes:
-        """Get existing key or create new one"""
+        """
+        Return the encryption key, generating one on first use.
+
+        The key used to be derived with PBKDF2 from a hardcoded password and a
+        hardcoded salt, both visible in this file. Every install therefore had
+        the same key, and anyone holding a copy of the settings file could
+        recompute it and read the stored credentials without ever seeing the
+        key file. It is now random per install.
+        """
         if self.key_file.exists():
-            with open(self.key_file, 'rb') as f:
-                return f.read()
-        else:
-            # Generate new key
-            kdf = PBKDF2HMAC(
-                algorithm=hashes.SHA256(),
-                length=32,
-                salt=b'salt',
-                iterations=100000,
-            )
-            key = base64.urlsafe_b64encode(kdf.derive(b"password"))
+            # Includes keys written by the old derivation, so credentials
+            # encrypted before this change still decrypt.
+            return self.key_file.read_bytes()
 
-            # Save securely
-            with open(self.key_file, 'wb') as f:
-                f.write(key)
+        key = Fernet.generate_key()
 
-            # Set restrictive permissions (Unix)
-            try:
-                os.chmod(self.key_file, 0o600)
-            except (OSError, NotImplementedError):
-                pass  # Windows does not support POSIX permissions
+        self.key_file.parent.mkdir(parents=True, exist_ok=True)
+        # Create with 0600 from the start rather than chmod'ing afterwards,
+        # which leaves the key world-readable in between.
+        try:
+            descriptor = os.open(self.key_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            # Another process won the race; its key is the one to use.
+            return self.key_file.read_bytes()
+        try:
+            with os.fdopen(descriptor, "wb") as handle:
+                handle.write(key)
+        except BaseException:
+            self.key_file.unlink(missing_ok=True)
+            raise
 
-            return key
+        logger.info("Generated a new credential encryption key at %s", self.key_file)
+        return key
 
     @property
     def cipher(self) -> Fernet:
