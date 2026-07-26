@@ -3,42 +3,68 @@ TerraForge Studio - Unified Terrain Generator
 Main orchestrator for terrain generation with multi-source and multi-format support
 """
 
+from __future__ import annotations
+
 import logging
-import asyncio
-from typing import Optional, Dict, Any, List
-from pathlib import Path
+import time
 import uuid
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 
-from ..models import (
-    MapGenerationRequest,
-    GenerationStatus,
-    ExportFormat,
-    ElevationSource,
-    BoundingBox,
-)
 from ..config import settings
-from .sources.base import BoundingBox as SourceBBox, DataSourceConfig
-from .sources import (
-    SentinelHubSource,
-    OpenTopographySource,
-    AzureMapsSource,
-    EarthEngineSource,
-    OSMSource,
-)
-from ..exporters.base import TerrainData
 from ..exporters import (
+    GeoTIFFExporter,
+    GLTFExporter,
+    UnityTerrainExporter,
     Unreal5HeightmapExporter,
     Unreal5WeightmapExporter,
-    UnityTerrainExporter,
-    GLTFExporter,
-    GeoTIFFExporter,
+)
+from ..exporters.base import TerrainData
+from ..models import (
+    BoundingBox,
+    ElevationProvenance,
+    ElevationSource,
+    ExportFormat,
+    ExportResult,
+    GenerationResult,
+    GenerationStatus,
+    MapGenerationRequest,
+    TaskStatus,
 )
 from .cache_manager import get_cache_manager
+from .plugin_system import get_plugin_registry
+from .sources import (
+    AzureMapsSource,
+    EarthEngineSource,
+    OpenTopographySource,
+    OSMSource,
+    SentinelHubSource,
+    SRTMSource,
+)
+from .sources.base import BoundingBox as SourceBBox
+from .sources.base import DataSourceConfig
 from .thumbnail_generator import generate_thumbnail
-from .plugin_system import get_plugin_registry, PluginHookType
 
 logger = logging.getLogger(__name__)
+
+#: Formats covered by ``ExportFormat.ALL``.
+_ALL_FORMATS: Tuple[ExportFormat, ...] = (
+    ExportFormat.UNREAL5,
+    ExportFormat.UNITY,
+    ExportFormat.GLTF,
+    ExportFormat.GEOTIFF,
+)
+
+
+def _utcnow() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+class TerrainGenerationError(RuntimeError):
+    """Raised when a generation cannot produce any usable output."""
 
 
 class TerraForgeGenerator:
@@ -51,80 +77,121 @@ class TerraForgeGenerator:
     3. Export to multiple game engine formats
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize generator with data sources and exporters"""
 
-        # Initialize data sources
         self.sources = self._initialize_sources()
 
-        # Initialize cache manager
-        cache_dir = getattr(settings, 'cache_dir', './cache')
-        self.cache_manager = get_cache_manager(cache_dir)
+        self.cache_manager = get_cache_manager(str(settings.cache_dir))
 
-        # Initialize plugin system
         self.plugin_registry = get_plugin_registry()
-        plugin_dir = getattr(settings, 'plugin_dir', './plugins')
-        self.plugin_registry.load_from_directory(Path(plugin_dir))
+        self.plugin_registry.load_from_directory(Path(settings.plugin_dir))
 
         # Task tracking
         self.active_tasks: Dict[str, GenerationStatus] = {}
 
         logger.info("TerraForge Generator initialized")
-        logger.info(f"Available sources: {list(self.sources.keys())}")
-        logger.info(f"Cache enabled: {cache_dir}")
-        logger.info(f"Plugins loaded: {len(self.plugin_registry.list_plugins())}")
+        logger.info("Available sources: %s", list(self.sources.keys()))
+        logger.info("Cache directory: %s", settings.cache_dir)
+        logger.info("Plugins loaded: %d", len(self.plugin_registry.list_plugins()))
 
+    # ------------------------------------------------------------------
+    # Sources
+    # ------------------------------------------------------------------
     def _initialize_sources(self) -> Dict[str, Any]:
-        """Initialize all available data sources"""
+        """Initialize all available data sources."""
 
-        sources = {}
+        sources: Dict[str, Any] = {}
 
-        # Sentinel Hub (Imagery)
-        if getattr(settings, "sentinelhub_enabled", False):
-            config = DataSourceConfig(
-                enabled=True,
-                api_key=getattr(settings, "sentinelhub_client_id", None),
-                api_secret=getattr(settings, "sentinelhub_client_secret", None),
+        # SRTM via open terrain tiles: free, global, no API key. This is the
+        # default elevation provider and the reason generation works offline of
+        # any paid account.
+        if settings.srtm_enabled:
+            sources["srtm"] = SRTMSource(
+                DataSourceConfig(enabled=True, timeout=settings.srtm_timeout),
+                tile_url=settings.srtm_tile_url,
+                cache_dir=settings.cache_dir if settings.srtm_tile_cache_enabled else None,
+                max_zoom=settings.srtm_max_zoom,
+                max_tiles=settings.srtm_max_tiles,
+                concurrency=settings.srtm_concurrency,
+                user_agent=settings.osm_user_agent,
             )
-            sources["sentinelhub"] = SentinelHubSource(config)
 
-        # OpenTopography (High-res DEMs)
-        if getattr(settings, "opentopography_enabled", False):
-            config = DataSourceConfig(
-                enabled=True,
-                api_key=getattr(settings, "opentopography_api_key", None),
+        if settings.sentinelhub_enabled:
+            sources["sentinelhub"] = SentinelHubSource(
+                DataSourceConfig(
+                    enabled=True,
+                    api_key=settings.sentinelhub_client_id,
+                    api_secret=settings.sentinelhub_client_secret,
+                )
             )
-            sources["opentopography"] = OpenTopographySource(config)
 
-        # Azure Maps (Vector + Elevation)
-        if getattr(settings, "azure_maps_enabled", False):
-            config = DataSourceConfig(
-                enabled=True,
-                api_key=getattr(settings, "azure_maps_subscription_key", None),
+        if settings.opentopography_enabled:
+            sources["opentopography"] = OpenTopographySource(
+                DataSourceConfig(enabled=True, api_key=settings.opentopography_api_key)
             )
-            sources["azure_maps"] = AzureMapsSource(config)
 
-        # Google Earth Engine (Advanced analysis)
-        if getattr(settings, "google_earth_engine_enabled", False):
-            config = DataSourceConfig(
-                enabled=True,
-                custom_params={
-                    "service_account": getattr(
-                        settings, "google_earth_engine_service_account", None
-                    ),
-                    "private_key_path": getattr(
-                        settings, "google_earth_engine_private_key_path", None
-                    ),
-                },
+        if settings.azure_maps_enabled:
+            sources["azure_maps"] = AzureMapsSource(
+                DataSourceConfig(enabled=True, api_key=settings.azure_maps_subscription_key)
             )
-            sources["earth_engine"] = EarthEngineSource(config)
 
-        # OpenStreetMap (always available)
-        config = DataSourceConfig(enabled=True)
-        sources["osm"] = OSMSource(config)
+        if settings.google_earth_engine_enabled:
+            sources["earth_engine"] = EarthEngineSource(
+                DataSourceConfig(
+                    enabled=True,
+                    custom_params={
+                        "service_account": settings.google_earth_engine_service_account,
+                        "private_key_path": settings.google_earth_engine_private_key_path,
+                    },
+                )
+            )
+
+        if settings.osm_enabled:
+            sources["osm"] = OSMSource(DataSourceConfig(enabled=True, timeout=settings.osm_timeout))
 
         return sources
 
+    # ------------------------------------------------------------------
+    # Task lifecycle
+    # ------------------------------------------------------------------
+    def create_task(self, request: MapGenerationRequest) -> GenerationStatus:
+        """Register a queued task so its status is visible before work starts."""
+        task_id = str(uuid.uuid4())
+        status = GenerationStatus(
+            task_id=task_id,
+            status=TaskStatus.PENDING,
+            progress=0.0,
+            current_step="Queued for processing",
+            message=f"Map generation for '{request.name}' has been queued",
+            created_at=_utcnow(),
+            updated_at=_utcnow(),
+        )
+        self.active_tasks[task_id] = status
+        return status
+
+    def get_task_status(self, task_id: str) -> Optional[GenerationStatus]:
+        """Get status of a generation task"""
+        return self.active_tasks.get(task_id)
+
+    def list_tasks(self) -> List[GenerationStatus]:
+        """List all tracked tasks, newest first."""
+        return sorted(
+            self.active_tasks.values(),
+            key=lambda task: task.created_at or "",
+            reverse=True,
+        )
+
+    def _advance(self, status: GenerationStatus, step: str, progress: float) -> None:
+        """Record progress on a task and log the transition."""
+        status.current_step = step
+        status.progress = progress
+        status.updated_at = _utcnow()
+        logger.info("[%s] %.0f%% - %s", status.task_id[:8], progress, step)
+
+    # ------------------------------------------------------------------
+    # Generation
+    # ------------------------------------------------------------------
     async def generate_terrain(
         self, request: MapGenerationRequest, task_id: Optional[str] = None
     ) -> GenerationStatus:
@@ -133,104 +200,75 @@ class TerraForgeGenerator:
 
         Args:
             request: Terrain generation request
-            task_id: Optional task ID
+            task_id: Task ID of an already-registered task; a new one is
+                created when omitted.
 
         Returns:
-            Generation status
+            Generation status. Failures are reported through the returned
+            status object rather than raised, so background tasks always leave
+            a readable state behind.
         """
-        if task_id is None:
-            task_id = str(uuid.uuid4())
+        status = self.active_tasks.get(task_id) if task_id else None
+        if status is None:
+            status = self.create_task(request)
+            task_id = status.task_id
 
-        # Create status tracker
-        status = GenerationStatus(
-            task_id=task_id, status="processing", progress=0.0, current_step="Initializing"
+        status.status = TaskStatus.PROCESSING
+        started = time.perf_counter()
+        self._emit_event(
+            "generation.started",
+            {"task_id": task_id, "name": request.name, "resolution": request.resolution},
         )
-        self.active_tasks[task_id] = status
 
         try:
-            logger.info(f"Starting terrain generation: '{request.name}' (task: {task_id})")
+            logger.info("Starting terrain generation: '%s' (task: %s)", request.name, task_id)
 
-            # Validate area
             area_km2 = request.bbox.area_km2()
-            max_area = getattr(settings, "max_area_km2", 100.0)
-            if area_km2 > max_area:
-                raise ValueError(f"Area too large: {area_km2:.2f} km² (max: {max_area} km²)")
+            if area_km2 > settings.max_area_km2:
+                raise TerrainGenerationError(
+                    f"Area too large: {area_km2:.2f} km² (max: {settings.max_area_km2} km²)"
+                )
 
-            # Convert bbox
             bbox = self._convert_bbox(request.bbox)
+            output_dir = settings.output_dir / request.name
+            output_dir.mkdir(parents=True, exist_ok=True)
 
-            # Check cache first
-            cache_key = self.cache_manager.generate_cache_key(
-                bbox={
-                    "north": request.bbox.north,
-                    "south": request.bbox.south,
-                    "east": request.bbox.east,
-                    "west": request.bbox.west,
-                },
-                config={
-                    "resolution": request.resolution,
-                    "export_formats": [f.value for f in request.export_formats],
-                    "elevation_source": request.elevation_source.value,
-                    "enable_roads": request.enable_roads,
-                    "enable_buildings": request.enable_buildings,
-                    "enable_weightmaps": request.enable_weightmaps,
-                    "enable_vegetation": request.enable_vegetation,
-                    "enable_water_bodies": request.enable_water_bodies,
-                }
-            )
-
-            # Check if result is cached
-            cached_result = self.cache_manager.get_cached_result(cache_key)
-            if cached_result:
-                logger.info(f"Cache hit! Using cached result: {cache_key[:16]}...")
-                status.current_step = "Using cached result"
-                status.progress = 100.0
-                status.status = "completed"
-                status.message = f"Terrain '{request.name}' loaded from cache"
-                
-                # Set download URL to cached result
-                zip_file = settings.output_dir / f"{request.name}.zip"
-                if zip_file.exists():
-                    status.download_url = f"/api/maps/{request.name}/download/zip"
-                
-                return status
-
-            # Step 1: Acquire elevation data
-            status.current_step = "Acquiring elevation data"
-            status.progress = 10.0
-            logger.info("Step 1/6: Acquiring elevation data")
-
-            elevation_data = await self._get_elevation_data(
+            # --- Step 1: elevation ---------------------------------------
+            self._advance(status, "Acquiring elevation data", 10.0)
+            elevation_data, provenance = await self._get_elevation_data(
                 bbox, request.resolution, request.elevation_source
             )
 
             if elevation_data is None:
-                raise ValueError("Failed to acquire elevation data from any source")
+                raise TerrainGenerationError(
+                    "Failed to acquire elevation data from any configured source. "
+                    "Check network connectivity or enable a data source in .env"
+                )
 
-            # Step 2: Get vector data (roads, buildings)
+            if provenance.synthetic:
+                status.add_warning(
+                    "Elevation data is procedurally generated, not real-world measurements. "
+                    "Every configured elevation source was unavailable."
+                )
+
+            # --- Step 2: vector features ---------------------------------
+            vector_data = None
             if request.enable_roads or request.enable_buildings:
-                status.current_step = "Extracting vector features"
-                status.progress = 30.0
-                logger.info("Step 2/6: Extracting vector data")
-
+                self._advance(status, "Extracting vector features", 30.0)
                 vector_data = await self._get_vector_data(bbox, request)
-            else:
-                vector_data = None
+                if vector_data is None:
+                    status.add_warning(
+                        "No vector data (roads/buildings) could be retrieved for this area."
+                    )
 
-            # Step 3: Generate weightmaps (if enabled)
+            # --- Step 3: weightmaps --------------------------------------
             weightmaps = None
             if request.enable_weightmaps:
-                status.current_step = "Generating material weightmaps"
-                status.progress = 50.0
-                logger.info("Step 3/6: Generating weightmaps")
+                self._advance(status, "Generating material weightmaps", 50.0)
+                weightmaps = self._generate_weightmaps(elevation_data)
 
-                weightmaps = await self._generate_weightmaps(elevation_data)
-
-            # Step 4: Create terrain data structure
-            status.current_step = "Preparing terrain data"
-            status.progress = 60.0
-            logger.info("Step 4/6: Preparing terrain data")
-
+            # --- Step 4: assemble ----------------------------------------
+            self._advance(status, "Preparing terrain data", 60.0)
             terrain_data = TerrainData(
                 heightmap=elevation_data,
                 resolution=request.resolution,
@@ -244,115 +282,159 @@ class TerraForgeGenerator:
                 buildings=vector_data.get("buildings") if vector_data else None,
             )
 
-            # Step 5: Export to requested formats
-            status.current_step = "Exporting terrain"
-            status.progress = 70.0
-            logger.info("Step 5/6: Exporting to formats")
-
-            output_dir = Path(getattr(settings, "output_dir", "output")) / request.name
-            output_dir.mkdir(parents=True, exist_ok=True)
-
-            export_results = await self._export_terrain(
+            # --- Step 5: export ------------------------------------------
+            self._advance(status, "Exporting terrain", 70.0)
+            exports = await self._export_terrain(
                 terrain_data, request.export_formats, output_dir
             )
 
-            # Step 6: Package results
-            status.current_step = "Finalizing"
-            status.progress = 95.0
-            logger.info("Step 6/6: Finalizing")
+            successful = [export for export in exports if export.success]
+            if not successful:
+                reasons = "; ".join(
+                    f"{export.format}: {export.error}" for export in exports if export.error
+                )
+                raise TerrainGenerationError(f"All exports failed ({reasons})")
 
-            # Create result summary
-            result = {
-                "terrain_name": request.name,
-                "resolution": request.resolution,
-                "area_km2": area_km2,
-                "elevation_range": {
-                    "min": float(np.min(elevation_data)),
-                    "max": float(np.max(elevation_data)),
-                },
-                "exports": export_results,
-                "output_directory": str(output_dir),
-            }
+            for export in exports:
+                if not export.success:
+                    status.add_warning(f"Export to {export.format} failed: {export.error}")
 
-            # Generate thumbnail for preview
-            status.current_step = "Generating preview thumbnail"
-            status.progress = 95.0
-            try:
-                thumbnail_path = output_dir / "thumbnail.png"
-                thumbnail_b64 = generate_thumbnail(elevation_data, thumbnail_path, size=(400, 300))
-                if thumbnail_b64:
-                    result["thumbnail"] = str(thumbnail_path)
-                    result["thumbnail_base64"] = thumbnail_b64
-                    logger.info("Thumbnail generated successfully")
-            except Exception as e:
-                logger.warning(f"Failed to generate thumbnail: {e}")
-                # Non-critical, continue
-            
-            # Mark complete
-            status.status = "completed"
-            status.progress = 100.0
-            status.current_step = "Complete"
+            # --- Step 6: finalize ----------------------------------------
+            self._advance(status, "Generating preview", 92.0)
+            thumbnail_path, thumbnail_b64 = self._generate_thumbnail(elevation_data, output_dir)
+            if thumbnail_path is None:
+                status.add_warning("Preview thumbnail could not be generated.")
+
+            result = GenerationResult(
+                terrain_name=request.name,
+                resolution=request.resolution,
+                area_km2=round(area_km2, 4),
+                bbox=request.bbox,
+                elevation=provenance,
+                exports=exports,
+                output_directory=str(output_dir),
+                thumbnail_path=str(thumbnail_path) if thumbnail_path else None,
+                thumbnail_base64=thumbnail_b64,
+                duration_seconds=round(time.perf_counter() - started, 3),
+            )
+
             status.result = result
+            status.status = TaskStatus.COMPLETED
+            status.download_url = f"/api/maps/{request.name}/download/zip"
+            self._advance(status, "Complete", 100.0)
+            status.message = (
+                f"Generated '{request.name}' in {result.duration_seconds:.1f}s "
+                f"({len(successful)}/{len(exports)} formats exported)"
+            )
 
-            logger.info(f"Terrain generation completed: {request.name}")
-
+            logger.info("Terrain generation completed: %s", request.name)
+            self._emit_event(
+                "generation.completed",
+                {
+                    "task_id": task_id,
+                    "name": request.name,
+                    "duration_seconds": result.duration_seconds,
+                    "elevation_source": provenance.source,
+                    "synthetic": provenance.synthetic,
+                    "formats": [export.format for export in successful],
+                    "download_url": status.download_url,
+                },
+            )
             return status
 
-        except Exception as e:
-            logger.error(f"Terrain generation failed: {e}", exc_info=True)
-            status.status = "failed"
-            status.error = str(e)
+        except Exception as exc:
+            logger.error("Terrain generation failed: %s", exc, exc_info=True)
+            status.status = TaskStatus.FAILED
+            status.error = str(exc)
+            status.updated_at = _utcnow()
+            status.message = f"Generation of '{request.name}' failed"
+            self._emit_event(
+                "generation.failed",
+                {"task_id": task_id, "name": request.name, "error": str(exc)},
+            )
             return status
+
+    @staticmethod
+    def _emit_event(name: str, data: Dict[str, Any]) -> None:
+        """Notify webhook subscribers; never let a subscriber break generation."""
+        try:
+            from ..api.webhook_routes import emit
+
+            emit(name, data)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Could not emit webhook event %s: %s", name, exc)
+
+    # ------------------------------------------------------------------
+    # Elevation
+    # ------------------------------------------------------------------
+    def _elevation_priority(self, requested: ElevationSource) -> List[str]:
+        """Resolve the ordered list of source names to try for a request."""
+        if requested != ElevationSource.AUTO:
+            # Always keep the free source as a last resort behind an explicit choice.
+            priority = [requested.value]
+            if "srtm" in self.sources and requested.value != "srtm":
+                priority.append("srtm")
+            return priority
+
+        priority = [name for name in settings.elevation_source_priority if name in self.sources]
+        if "srtm" in self.sources and "srtm" not in priority:
+            priority.append("srtm")
+        return priority
 
     async def _get_elevation_data(
         self, bbox: SourceBBox, resolution: int, source_priority: ElevationSource
-    ) -> Optional[np.ndarray]:
+    ) -> Tuple[Optional[np.ndarray], ElevationProvenance]:
         """
-        Acquire elevation data from best available source.
+        Acquire elevation data from the best available source.
 
-        Args:
-            bbox: Bounding box
-            resolution: Target resolution
-            source_priority: Preferred source
-
-        Returns:
-            Elevation data array or None
+        Returns the elevation array together with provenance describing which
+        source produced it and whether it is real or synthetic.
         """
+        priority = self._elevation_priority(source_priority)
+        if not priority:
+            logger.warning("No elevation sources are configured")
 
-        # Define source priority
-        if source_priority == ElevationSource.AUTO:
-            # Try sources in order of quality
-            priority = ["opentopography", "azure_maps", "srtm"]
-        else:
-            priority = [source_priority.value]
-
-        # Try each source
         for source_name in priority:
-            if source_name not in self.sources:
+            source = self.sources.get(source_name)
+            if source is None:
                 continue
-
-            source = self.sources[source_name]
 
             try:
                 if not await source.is_available():
-                    logger.info(f"Source {source_name} not available, skipping")
+                    logger.info("Source %s not available, skipping", source_name)
                     continue
 
-                logger.info(f"Trying elevation source: {source_name}")
+                logger.info("Trying elevation source: %s", source_name)
                 elevation = await source.get_elevation_data(bbox, resolution)
 
-                if elevation is not None:
-                    logger.info(f"Successfully acquired elevation from {source_name}")
-                    return elevation
+                if elevation is not None and np.isfinite(elevation).any():
+                    logger.info("Acquired elevation from %s", source_name)
+                    return elevation, ElevationProvenance(
+                        source=source_name,
+                        synthetic=False,
+                        min_elevation_m=float(np.nanmin(elevation)),
+                        max_elevation_m=float(np.nanmax(elevation)),
+                    )
 
-            except Exception as e:
-                logger.warning(f"Failed to get elevation from {source_name}: {e}")
+            except Exception as exc:
+                logger.warning("Failed to get elevation from %s: %s", source_name, exc)
                 continue
 
-        # Fallback: Generate synthetic terrain (for testing)
-        logger.warning("All elevation sources failed, generating synthetic terrain")
-        return self._generate_synthetic_terrain(resolution)
+        if not settings.allow_synthetic_fallback:
+            return None, ElevationProvenance(source="none", synthetic=True)
 
+        logger.warning("All elevation sources failed - generating synthetic terrain")
+        synthetic = self._generate_synthetic_terrain(resolution)
+        return synthetic, ElevationProvenance(
+            source="synthetic",
+            synthetic=True,
+            min_elevation_m=float(synthetic.min()),
+            max_elevation_m=float(synthetic.max()),
+        )
+
+    # ------------------------------------------------------------------
+    # Vector data
+    # ------------------------------------------------------------------
     async def _get_vector_data(
         self, bbox: SourceBBox, request: MapGenerationRequest
     ) -> Optional[Dict[str, Any]]:
@@ -364,56 +446,64 @@ class TerraForgeGenerator:
         if request.enable_buildings:
             feature_types.append("buildings")
 
-        # Try OSM first (free and always available)
-        if "osm" in self.sources:
+        for source_name in ("osm", "azure_maps"):
+            source = self.sources.get(source_name)
+            if source is None:
+                continue
             try:
-                osm = self.sources["osm"]
-                vector_data = await osm.get_vector_data(bbox, feature_types)
+                if not await source.is_available():
+                    continue
+                vector_data = await source.get_vector_data(bbox, feature_types)
                 if vector_data:
                     return self._organize_vector_data(vector_data)
-            except Exception as e:
-                logger.warning(f"OSM vector data failed: {e}")
-
-        # Try Azure Maps as fallback
-        if "azure_maps" in self.sources:
-            try:
-                azure = self.sources["azure_maps"]
-                if await azure.is_available():
-                    vector_data = await azure.get_vector_data(bbox, feature_types)
-                    if vector_data:
-                        return self._organize_vector_data(vector_data)
-            except Exception as e:
-                logger.warning(f"Azure Maps vector data failed: {e}")
+            except Exception as exc:
+                logger.warning("%s vector data failed: %s", source_name, exc)
 
         return None
 
-    async def _generate_weightmaps(
-        self, elevation: np.ndarray
-    ) -> Dict[str, np.ndarray]:
+    @staticmethod
+    def _organize_vector_data(raw_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Organize raw vector data by type"""
+
+        organized: Dict[str, List[Any]] = {"roads": [], "buildings": [], "poi": []}
+
+        for feature in raw_data.get("features", []):
+            ftype = feature.get("properties", {}).get("type", "")
+            if ftype == "road":
+                organized["roads"].append(feature)
+            elif ftype == "building":
+                organized["buildings"].append(feature)
+            elif ftype == "poi":
+                organized["poi"].append(feature)
+
+        return organized
+
+    # ------------------------------------------------------------------
+    # Derived layers
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _generate_weightmaps(elevation: np.ndarray) -> Dict[str, np.ndarray]:
         """
         Generate material weightmaps from elevation and slope.
 
-        Returns dict with keys: rock, grass, dirt, sand
+        Returns normalized layers that sum to 1 per pixel, keyed
+        ``rock`` / ``grass`` / ``dirt`` / ``sand``.
         """
+        clean = np.nan_to_num(elevation, nan=float(np.nanmean(elevation)) if np.isfinite(elevation).any() else 0.0)
 
-        # Calculate slope
-        dy, dx = np.gradient(elevation)
+        dy, dx = np.gradient(clean)
         slope = np.degrees(np.arctan(np.sqrt(dx**2 + dy**2)))
 
-        # Normalize height
-        height_norm = (elevation - elevation.min()) / (elevation.max() - elevation.min() + 1e-6)
+        span = float(clean.max() - clean.min())
+        height_norm = (clean - clean.min()) / span if span > 1e-6 else np.zeros_like(clean)
 
-        # Initialize weightmaps
-        rock = np.clip((slope - 30) / 30, 0, 1)  # Steep slopes
-        sand = (1 - height_norm) * (1 - np.clip(slope / 15, 0, 1))  # Low + flat
-        grass = (1 - np.abs(height_norm - 0.5) * 2) * (
-            1 - np.clip(slope / 20, 0, 1)
-        )  # Mid + gentle
-        dirt = np.clip(1 - (rock + grass + sand), 0, 1)  # Fill remainder
+        rock = np.clip((slope - 30) / 30, 0, 1)  # steep slopes
+        sand = (1 - height_norm) * (1 - np.clip(slope / 15, 0, 1))  # low and flat
+        grass = (1 - np.abs(height_norm - 0.5) * 2) * (1 - np.clip(slope / 20, 0, 1))
+        grass = np.clip(grass, 0, 1)
+        dirt = np.clip(1 - (rock + grass + sand), 0, 1)  # fill remainder
 
-        # Normalize
-        total = rock + grass + dirt + sand
-        total = np.maximum(total, 0.001)
+        total = np.maximum(rock + grass + dirt + sand, 1e-3)
 
         return {
             "rock": (rock / total).astype(np.float32),
@@ -422,129 +512,140 @@ class TerraForgeGenerator:
             "sand": (sand / total).astype(np.float32),
         }
 
+    @staticmethod
+    def _generate_thumbnail(
+        elevation: np.ndarray, output_dir: Path
+    ) -> Tuple[Optional[Path], Optional[str]]:
+        """Render a preview image; failures are non-fatal."""
+        try:
+            thumbnail_path = output_dir / "thumbnail.png"
+            thumbnail_b64 = generate_thumbnail(elevation, thumbnail_path, size=(400, 300))
+            if thumbnail_b64:
+                return thumbnail_path, thumbnail_b64
+        except Exception as exc:
+            logger.warning("Failed to generate thumbnail: %s", exc)
+        return None, None
+
+    # ------------------------------------------------------------------
+    # Export
+    # ------------------------------------------------------------------
     async def _export_terrain(
         self, terrain_data: TerrainData, formats: List[ExportFormat], output_dir: Path
-    ) -> Dict[str, Any]:
-        """Export terrain to requested formats"""
+    ) -> List[ExportResult]:
+        """
+        Export terrain to the requested formats.
 
-        results = {}
-
-        # Handle "all" format
-        if ExportFormat.ALL in formats:
-            formats = [
-                ExportFormat.UNREAL5,
-                ExportFormat.UNITY,
-                ExportFormat.GLTF,
-                ExportFormat.GEOTIFF,
-            ]
-
+        Each format is attempted independently; one failing exporter never
+        prevents the others from producing output.
+        """
+        targets: List[ExportFormat] = []
         for fmt in formats:
+            if fmt == ExportFormat.ALL:
+                targets.extend(_ALL_FORMATS)
+            else:
+                targets.append(fmt)
+
+        seen: set = set()
+        ordered = [fmt for fmt in targets if not (fmt in seen or seen.add(fmt))]
+
+        results: List[ExportResult] = []
+        for fmt in ordered:
+            target_dir = output_dir / fmt.value
             try:
-                if fmt == ExportFormat.UNREAL5:
-                    # Export UE5 heightmap
-                    ue5_dir = output_dir / "unreal5"
-                    ue5_dir.mkdir(exist_ok=True)
-
-                    heightmap_exp = Unreal5HeightmapExporter(ue5_dir)
-                    heightmap_files = await heightmap_exp.export(terrain_data)
-
-                    # Export weightmaps if available
-                    if terrain_data.weightmaps:
-                        weightmap_exp = Unreal5WeightmapExporter(ue5_dir)
-                        weightmap_files = await weightmap_exp.export(terrain_data)
-                        heightmap_files.update(weightmap_files)
-
-                    results["unreal5"] = {"files": heightmap_files, "directory": str(ue5_dir)}
-
-                elif fmt == ExportFormat.UNITY:
-                    unity_dir = output_dir / "unity"
-                    unity_dir.mkdir(exist_ok=True)
-
-                    exporter = UnityTerrainExporter(unity_dir)
-                    files = await exporter.export(terrain_data)
-
-                    results["unity"] = {"files": files, "directory": str(unity_dir)}
-
-                elif fmt == ExportFormat.GLTF:
-                    gltf_dir = output_dir / "gltf"
-                    gltf_dir.mkdir(exist_ok=True)
-
-                    exporter = GLTFExporter(gltf_dir, binary_format=True)
-                    files = await exporter.export(terrain_data)
-
-                    results["gltf"] = {"files": files, "directory": str(gltf_dir)}
-
-                elif fmt == ExportFormat.GEOTIFF:
-                    geotiff_dir = output_dir / "geotiff"
-                    geotiff_dir.mkdir(exist_ok=True)
-
-                    exporter = GeoTIFFExporter(geotiff_dir)
-                    files = await exporter.export(terrain_data)
-
-                    results["geotiff"] = {"files": files, "directory": str(geotiff_dir)}
-
-                logger.info(f"Successfully exported to {fmt.value}")
-
-            except Exception as e:
-                logger.error(f"Failed to export to {fmt.value}: {e}")
-                results[fmt.value] = {"error": str(e)}
+                files, directory = await self._run_exporter(fmt, terrain_data, output_dir)
+                results.append(
+                    ExportResult(
+                        format=fmt.value,
+                        success=True,
+                        directory=str(directory),
+                        files={key: str(path) for key, path in files.items()},
+                    )
+                )
+                logger.info("Successfully exported to %s", fmt.value)
+            except Exception as exc:
+                logger.error("Failed to export to %s: %s", fmt.value, exc)
+                results.append(ExportResult(format=fmt.value, success=False, error=str(exc)))
+                # Remove the directory the exporter created before failing, so
+                # /api/maps does not advertise a format that produced no files.
+                self._remove_if_empty(target_dir)
 
         return results
 
-    def _convert_bbox(self, bbox: BoundingBox) -> SourceBBox:
+    @staticmethod
+    def _remove_if_empty(directory: Path) -> None:
+        """Delete a directory when it exists and contains nothing."""
+        try:
+            if directory.is_dir() and not any(directory.iterdir()):
+                directory.rmdir()
+        except OSError as exc:
+            logger.debug("Could not remove empty directory %s: %s", directory, exc)
+
+    async def _run_exporter(
+        self, fmt: ExportFormat, terrain_data: TerrainData, output_dir: Path
+    ) -> Tuple[Dict[str, Path], Path]:
+        """Dispatch to the exporter for a single format."""
+        if fmt == ExportFormat.UNREAL5:
+            target = output_dir / "unreal5"
+            target.mkdir(parents=True, exist_ok=True)
+
+            files = await Unreal5HeightmapExporter(
+                target, export_format=settings.ue5_heightmap_format
+            ).export(terrain_data)
+
+            if terrain_data.weightmaps and settings.ue5_export_weightmaps:
+                files.update(await Unreal5WeightmapExporter(target).export(terrain_data))
+            return files, target
+
+        if fmt == ExportFormat.UNITY:
+            target = output_dir / "unity"
+            target.mkdir(parents=True, exist_ok=True)
+            return await UnityTerrainExporter(target).export(terrain_data), target
+
+        if fmt == ExportFormat.GLTF:
+            target = output_dir / "gltf"
+            target.mkdir(parents=True, exist_ok=True)
+            exporter = GLTFExporter(
+                target,
+                binary_format=True,
+                max_mesh_resolution=settings.gltf_max_mesh_resolution,
+            )
+            return await exporter.export(terrain_data), target
+
+        if fmt == ExportFormat.GEOTIFF:
+            target = output_dir / "geotiff"
+            target.mkdir(parents=True, exist_ok=True)
+            return await GeoTIFFExporter(target).export(terrain_data), target
+
+        raise ValueError(f"Unsupported export format: {fmt.value}")
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _convert_bbox(bbox: BoundingBox) -> SourceBBox:
         """Convert API bbox to source bbox"""
-        return SourceBBox(
-            north=bbox.north, south=bbox.south, east=bbox.east, west=bbox.west
+        return SourceBBox(north=bbox.north, south=bbox.south, east=bbox.east, west=bbox.west)
+
+    @staticmethod
+    def _generate_synthetic_terrain(resolution: int) -> np.ndarray:
+        """
+        Generate procedural terrain used only when every real source failed.
+
+        Results are always flagged as synthetic in the provenance so callers
+        never mistake them for measured elevation.
+        """
+        logger.warning("Generating synthetic terrain - this is NOT real world data")
+
+        axis = np.linspace(0, 8 * np.pi, resolution)
+        grid_x, grid_y = np.meshgrid(axis, axis)
+
+        heights = (
+            np.sin(grid_x) * np.cos(grid_y) * 100
+            + np.sin(2 * grid_x) * np.cos(2 * grid_y) * 50
+            + np.sin(4 * grid_x) * np.cos(4 * grid_y) * 25
         )
+        # Deterministic noise keeps repeated runs reproducible and cacheable.
+        rng = np.random.default_rng(seed=resolution)
+        heights += rng.standard_normal((resolution, resolution)) * 10
 
-    def _organize_vector_data(self, raw_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Organize raw vector data by type"""
-
-        organized = {"roads": [], "buildings": [], "poi": []}
-
-        if "features" in raw_data:
-            for feature in raw_data["features"]:
-                ftype = feature.get("properties", {}).get("type", "")
-
-                if ftype == "road":
-                    organized["roads"].append(feature)
-                elif ftype == "building":
-                    organized["buildings"].append(feature)
-                elif ftype == "poi":
-                    organized["poi"].append(feature)
-
-        return organized
-
-    def _generate_synthetic_terrain(self, resolution: int) -> np.ndarray:
-        """Generate synthetic terrain for testing (Perlin-like noise)"""
-
-        logger.warning("Generating synthetic terrain - not real world data!")
-
-        # Simple procedural terrain
-        x = np.linspace(0, 8 * np.pi, resolution)
-        y = np.linspace(0, 8 * np.pi, resolution)
-        X, Y = np.meshgrid(x, y)
-
-        # Combine multiple frequencies
-        Z = (
-            np.sin(X) * np.cos(Y) * 100
-            + np.sin(2 * X) * np.cos(2 * Y) * 50
-            + np.sin(4 * X) * np.cos(4 * Y) * 25
-        )
-
-        # Add some random noise
-        Z += np.random.randn(resolution, resolution) * 10
-
-        # Shift to positive values
-        Z = Z - Z.min() + 100
-
-        return Z.astype(np.float32)
-
-    def get_task_status(self, task_id: str) -> Optional[GenerationStatus]:
-        """Get status of a generation task"""
-        return self.active_tasks.get(task_id)
-
-    def list_tasks(self) -> List[GenerationStatus]:
-        """List all tracked tasks"""
-        return list(self.active_tasks.values())
-
+        return (heights - heights.min() + 100).astype(np.float32)

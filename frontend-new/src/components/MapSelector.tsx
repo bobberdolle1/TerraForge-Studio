@@ -14,13 +14,37 @@ interface MapSelectorProps {
   onBboxChange: (bbox: BoundingBox | null) => void;
 }
 
+/**
+ * Helpers attached to the Leaflet map instance so the layer-switching effect
+ * can reach them later. Leaflet has no typed extension point for this, so the
+ * shape is declared explicitly instead of casting to `any` at each use.
+ */
+interface MapWithHelpers extends L.Map {
+  _getLayer?: (type: MapType) => L.TileLayer;
+  _getLabelsLayer?: () => L.TileLayer;
+  _updateInfo?: (bbox: BoundingBox | null) => void;
+}
+
+/** Base layers the selector can display. */
+type MapType = 'osm' | 'satellite' | 'hybrid' | 'topo';
+
+/**
+ * leaflet-draw payloads. Leaflet types every handler as taking a bare
+ * LeafletEvent, so these are narrowed inside the handler bodies.
+ */
+type DrawCreatedEvent = L.LeafletEvent & { layer: BoundedLayer };
+type DrawEditedEvent = L.LeafletEvent & { layers: L.LayerGroup };
+
+/** Any drawn shape exposing bounds (rectangle, polygon). */
+type BoundedLayer = L.Layer & { getBounds: () => L.LatLngBounds };
+
 const MapSelector: React.FC<MapSelectorProps> = ({ selectedBbox, onBboxChange }) => {
   const { t } = useTranslation();
   const mapRef = useRef<L.Map | null>(null);
   const drawnItemsRef = useRef<L.FeatureGroup | null>(null);
   const currentLayerRef = useRef<L.TileLayer | null>(null);
   const labelLayerRef = useRef<L.TileLayer | null>(null);
-  const [mapType, setMapType] = useState<'osm' | 'satellite' | 'hybrid' | 'topo'>('osm');
+  const [mapType, setMapType] = useState<MapType>('osm');
 
   useEffect(() => {
     // Initialize map
@@ -74,8 +98,8 @@ const MapSelector: React.FC<MapSelectorProps> = ({ selectedBbox, onBboxChange })
       }
 
       // Store functions on map for later use
-      (map as any)._getLayer = getLayer;
-      (map as any)._getLabelsLayer = getLabelsLayer;
+      (map as MapWithHelpers)._getLayer = getLayer;
+      (map as MapWithHelpers)._getLabelsLayer = getLabelsLayer;
 
       const drawnItems = new L.FeatureGroup();
       map.addLayer(drawnItems);
@@ -131,8 +155,8 @@ const MapSelector: React.FC<MapSelectorProps> = ({ selectedBbox, onBboxChange })
       map.addControl(drawControl);
 
       // Handle drawing created
-      map.on(L.Draw.Event.CREATED, (event: any) => {
-        const layer = event.layer;
+      map.on(L.Draw.Event.CREATED, (event: L.LeafletEvent) => {
+        const layer = (event as DrawCreatedEvent).layer;
         drawnItems.clearLayers();
         drawnItems.addLayer(layer);
         
@@ -164,16 +188,14 @@ const MapSelector: React.FC<MapSelectorProps> = ({ selectedBbox, onBboxChange })
         };
 
         onBboxChange(bbox);
-        if ((mapRef.current as any)?._updateInfo) {
-          (mapRef.current as any)._updateInfo(bbox);
-        }
+        (mapRef.current as MapWithHelpers | null)?._updateInfo?.(bbox);
       });
 
       // Handle drawing edited
-      map.on(L.Draw.Event.EDITED, (event: any) => {
-        const layers = event.layers;
-        layers.eachLayer((layer: any) => {
-          const bounds = layer.getBounds();
+      map.on(L.Draw.Event.EDITED, (event: L.LeafletEvent) => {
+        const layers = (event as DrawEditedEvent).layers;
+        layers.eachLayer((layer: L.Layer) => {
+          const bounds = (layer as BoundedLayer).getBounds();
           const bbox: BoundingBox = {
             north: bounds.getNorth(),
             south: bounds.getSouth(),
@@ -230,7 +252,7 @@ const MapSelector: React.FC<MapSelectorProps> = ({ selectedBbox, onBboxChange })
       };
 
       // Store update function for later use
-      (map as any)._updateInfo = updateInfo;
+      (map as MapWithHelpers)._updateInfo = updateInfo;
 
       mapRef.current = map;
       drawnItemsRef.current = drawnItems;
@@ -242,13 +264,18 @@ const MapSelector: React.FC<MapSelectorProps> = ({ selectedBbox, onBboxChange })
         mapRef.current = null;
       }
     };
+    // mapType is read here only to pick the *initial* layer. Adding it to the
+    // dependency list would tear down and rebuild the whole Leaflet map on
+    // every layer switch, discarding the user's drawn selection; the effect
+    // below swaps layers in place instead.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onBboxChange]);
 
   // Change map layer when mapType changes
   useEffect(() => {
     if (mapRef.current && currentLayerRef.current) {
-      const getLayer = (mapRef.current as any)._getLayer;
-      const getLabelsLayer = (mapRef.current as any)._getLabelsLayer;
+      const getLayer = (mapRef.current as MapWithHelpers)._getLayer;
+      const getLabelsLayer = (mapRef.current as MapWithHelpers)._getLabelsLayer;
       if (getLayer) {
         // Remove old layer
         mapRef.current.removeLayer(currentLayerRef.current);

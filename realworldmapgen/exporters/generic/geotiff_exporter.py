@@ -6,12 +6,11 @@ Exports georeferenced elevation data as GeoTIFF
 import json
 from pathlib import Path
 from typing import Dict, Optional
-import numpy as np
 
 try:
     import rasterio
-    from rasterio.transform import from_bounds
     from rasterio.crs import CRS
+    from rasterio.transform import from_bounds
 
     RASTERIO_AVAILABLE = True
 except ImportError:

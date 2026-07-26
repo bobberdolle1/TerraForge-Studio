@@ -9,12 +9,12 @@ Usage:
     terraforge history --limit 10
 """
 
-import click
-import requests
 import json
 import time
 from pathlib import Path
-from typing import Optional
+
+import click
+import requests
 
 
 class TerraForgeAPI:
@@ -26,7 +26,7 @@ class TerraForgeAPI:
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         })
-    
+
     def generate_terrain(self, bbox: dict, resolution: int, source: str = "srtm"):
         """Generate terrain"""
         response = self.session.post(
@@ -39,13 +39,13 @@ class TerraForgeAPI:
         )
         response.raise_for_status()
         return response.json()
-    
+
     def get_generation_status(self, generation_id: str):
         """Get generation status"""
         response = self.session.get(f"{self.base_url}/terrain/generate/{generation_id}")
         response.raise_for_status()
         return response.json()
-    
+
     def export_terrain(self, generation_id: str, format: str, options: dict = None):
         """Export terrain"""
         payload = {
@@ -54,26 +54,26 @@ class TerraForgeAPI:
         }
         if options:
             payload["options"] = options
-        
+
         response = self.session.post(f"{self.base_url}/export", json=payload)
         response.raise_for_status()
         return response.json()
-    
+
     def get_export_status(self, export_id: str):
         """Get export status"""
         response = self.session.get(f"{self.base_url}/export/{export_id}")
         response.raise_for_status()
         return response.json()
-    
+
     def download_file(self, url: str, output_path: Path):
         """Download file from URL"""
         response = requests.get(url, stream=True)
         response.raise_for_status()
-        
+
         with open(output_path, 'wb') as f:
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
-    
+
     def get_history(self, limit: int = 10, offset: int = 0):
         """Get generation history"""
         response = self.session.get(
@@ -92,7 +92,7 @@ def cli(ctx, api_key):
     if not api_key:
         click.echo("Error: API key required. Set TERRAFORGE_API_KEY environment variable or use --api-key")
         ctx.exit(1)
-    
+
     ctx.obj = TerraForgeAPI(api_key)
 
 
@@ -109,42 +109,42 @@ def generate(api: TerraForgeAPI, bbox, resolution, source, wait):
         coords = [float(x.strip()) for x in bbox.split(',')]
         if len(coords) != 4:
             raise ValueError("Bbox must have 4 coordinates")
-        
+
         bbox_dict = {
             "north": coords[0],
             "south": coords[1],
             "east": coords[2],
             "west": coords[3]
         }
-        
-        click.echo(f"🌍 Generating terrain...")
+
+        click.echo("🌍 Generating terrain...")
         click.echo(f"   Bbox: {bbox}")
         click.echo(f"   Resolution: {resolution}m")
-        
+
         result = api.generate_terrain(bbox_dict, resolution, source)
         generation_id = result['id']
-        
+
         click.echo(f"✅ Generation started: {generation_id}")
-        
+
         if wait:
             click.echo("⏳ Waiting for completion...")
             with click.progressbar(length=100, label='Progress') as bar:
                 while True:
                     status = api.get_generation_status(generation_id)
                     bar.update(status.get('progress', 0) - bar.pos)
-                    
+
                     if status['status'] == 'completed':
-                        click.echo(f"\n✅ Generation completed!")
+                        click.echo("\n✅ Generation completed!")
                         click.echo(f"   Heightmap: {status['result']['heightmap_url']}")
                         break
                     elif status['status'] == 'failed':
                         click.echo(f"\n❌ Generation failed: {status.get('error')}")
                         break
-                    
+
                     time.sleep(2)
         else:
             click.echo(f"Use 'terraforge status {generation_id}' to check progress")
-    
+
     except Exception as e:
         click.echo(f"❌ Error: {e}", err=True)
 
@@ -158,10 +158,10 @@ def status(api: TerraForgeAPI, generation_id):
         result = api.get_generation_status(generation_id)
         click.echo(f"Status: {result['status']}")
         click.echo(f"Progress: {result.get('progress', 0)}%")
-        
+
         if result['status'] == 'completed':
             click.echo(f"Heightmap: {result['result']['heightmap_url']}")
-    
+
     except Exception as e:
         click.echo(f"❌ Error: {e}", err=True)
 
@@ -176,34 +176,34 @@ def export(api: TerraForgeAPI, generation_id, format, output, wait):
     """Export terrain to game engine format"""
     try:
         click.echo(f"📦 Exporting to {format}...")
-        
+
         result = api.export_terrain(generation_id, format)
         export_id = result['id']
-        
+
         click.echo(f"✅ Export started: {export_id}")
-        
+
         if wait:
             click.echo("⏳ Waiting for completion...")
             while True:
                 status = api.get_export_status(export_id)
-                
+
                 if status['status'] == 'completed':
                     download_url = status['download_url']
-                    click.echo(f"✅ Export completed!")
-                    
+                    click.echo("✅ Export completed!")
+
                     if output:
                         click.echo(f"⬇️  Downloading to {output}...")
                         api.download_file(download_url, Path(output))
-                        click.echo(f"✅ Downloaded successfully!")
+                        click.echo("✅ Downloaded successfully!")
                     else:
                         click.echo(f"Download: {download_url}")
                     break
                 elif status['status'] == 'failed':
                     click.echo(f"❌ Export failed: {status.get('error')}")
                     break
-                
+
                 time.sleep(2)
-    
+
     except Exception as e:
         click.echo(f"❌ Error: {e}", err=True)
 
@@ -216,7 +216,7 @@ def history(api: TerraForgeAPI, limit, format):
     """View generation history"""
     try:
         result = api.get_history(limit=limit)
-        
+
         if format == 'json':
             click.echo(json.dumps(result, indent=2))
         else:
@@ -228,12 +228,12 @@ def history(api: TerraForgeAPI, limit, format):
                     'failed': '❌',
                     'pending': '📋'
                 }.get(item['status'], '❓')
-                
+
                 click.echo(f"{status_emoji} {item['id']}")
                 click.echo(f"   Status: {item['status']}")
                 click.echo(f"   Created: {item['created_at']}")
                 click.echo()
-    
+
     except Exception as e:
         click.echo(f"❌ Error: {e}", err=True)
 

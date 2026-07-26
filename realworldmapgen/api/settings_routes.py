@@ -4,14 +4,15 @@ Endpoints for managing user settings
 """
 
 import logging
+from typing import Any, Dict
+
 from fastapi import APIRouter, HTTPException
-from typing import Dict, Any
 
 from ..settings import (
-    settings_manager,
-    UserSettings,
-    SettingsUpdate,
     MaskedCredentials,
+    SettingsUpdate,
+    UserSettings,
+    settings_manager,
 )
 
 logger = logging.getLogger(__name__)
@@ -23,7 +24,7 @@ router = APIRouter(prefix="/api/settings", tags=["settings"])
 async def get_settings():
     """
     Get current user settings.
-    
+
     Note: API keys are returned in plain text only when reading.
     They are encrypted when stored.
     """
@@ -32,7 +33,7 @@ async def get_settings():
         return settings
     except Exception as e:
         logger.error(f"Failed to get settings: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/masked", response_model=MaskedCredentials)
@@ -45,14 +46,14 @@ async def get_masked_credentials():
         return settings_manager.get_masked_credentials()
     except Exception as e:
         logger.error(f"Failed to get masked credentials: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/", response_model=UserSettings)
 async def update_settings(updates: SettingsUpdate):
     """
     Update user settings.
-    
+
     Only updates the provided fields, leaves others unchanged.
     """
     try:
@@ -61,23 +62,23 @@ async def update_settings(updates: SettingsUpdate):
         return settings
     except Exception as e:
         logger.error(f"Failed to update settings: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/test-connection/{source}")
 async def test_connection(source: str):
     """
     Test connection to a data source.
-    
+
     Args:
         source: Source name (sentinelhub, opentopography, azure_maps, osm)
-        
+
     Returns:
         Success status and error message if any
     """
     try:
         success, error = settings_manager.test_connection(source)
-        
+
         return {
             "source": source,
             "success": success,
@@ -97,10 +98,10 @@ async def test_connection(source: str):
 async def export_settings(include_credentials: bool = False) -> Dict[str, Any]:
     """
     Export settings for backup/transfer.
-    
+
     Args:
         include_credentials: If True, include encrypted credentials
-        
+
     Returns:
         Settings dictionary
     """
@@ -108,17 +109,17 @@ async def export_settings(include_credentials: bool = False) -> Dict[str, Any]:
         return settings_manager.export_settings(include_credentials)
     except Exception as e:
         logger.error(f"Failed to export settings: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/import")
 async def import_settings(data: Dict[str, Any]) -> UserSettings:
     """
     Import settings from backup.
-    
+
     Args:
         data: Settings dictionary
-        
+
     Returns:
         Imported settings
     """
@@ -128,14 +129,14 @@ async def import_settings(data: Dict[str, Any]) -> UserSettings:
         return settings
     except Exception as e:
         logger.error(f"Failed to import settings: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/reset")
 async def reset_settings() -> UserSettings:
     """
     Reset all settings to defaults.
-    
+
     Warning: This will delete all configured API keys!
     """
     try:
@@ -144,7 +145,7 @@ async def reset_settings() -> UserSettings:
         return settings
     except Exception as e:
         logger.error(f"Failed to reset settings: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/first-run")
@@ -163,7 +164,7 @@ async def complete_wizard():
     settings = settings_manager.get()
     settings.first_run = False
     settings_manager.save()
-    
+
     return {
         "success": True,
         "message": "Setup wizard completed"

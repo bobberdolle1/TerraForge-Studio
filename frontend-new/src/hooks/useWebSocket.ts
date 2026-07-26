@@ -5,8 +5,18 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 
+/**
+ * Anything the server pushes over the socket. `type` discriminates the
+ * payload; the generation channel sends the full GenerationStatus shape
+ * alongside it.
+ */
+export interface WebSocketMessage {
+  type: string;
+  [key: string]: unknown;
+}
+
 interface UseWebSocketOptions {
-  onMessage?: (data: any) => void;
+  onMessage?: (data: WebSocketMessage) => void;
   onOpen?: () => void;
   onClose?: () => void;
   onError?: (error: Event) => void;
@@ -27,7 +37,7 @@ export function useWebSocket(url: string | null, options: UseWebSocketOptions = 
   } = options;
 
   const [isConnected, setIsConnected] = useState(false);
-  const [lastMessage, setLastMessage] = useState<any>(null);
+  const [lastMessage, setLastMessage] = useState<WebSocketMessage | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const reconnectTimeoutRef = useRef<number>();
@@ -44,7 +54,6 @@ export function useWebSocket(url: string | null, options: UseWebSocketOptions = 
       const ws = new WebSocket(url);
 
       ws.onopen = () => {
-        console.log('WebSocket connected:', url);
         setIsConnected(true);
         reconnectAttemptsRef.current = 0;
         onOpen?.();
@@ -66,14 +75,13 @@ export function useWebSocket(url: string | null, options: UseWebSocketOptions = 
       };
 
       ws.onclose = () => {
-        console.log('WebSocket disconnected');
         setIsConnected(false);
         onClose?.();
 
         // Attempt reconnection if enabled
         if (reconnect && reconnectAttemptsRef.current < reconnectAttempts) {
           reconnectAttemptsRef.current++;
-          console.log(`Reconnecting... (Attempt ${reconnectAttemptsRef.current}/${reconnectAttempts})`);
+          console.warn(`WebSocket reconnecting (attempt ${reconnectAttemptsRef.current}/${reconnectAttempts})`);
           
           reconnectTimeoutRef.current = window.setTimeout(() => {
             connect();
@@ -98,7 +106,7 @@ export function useWebSocket(url: string | null, options: UseWebSocketOptions = 
     setIsConnected(false);
   }, []);
 
-  const sendMessage = useCallback((data: any) => {
+  const sendMessage = useCallback((data: unknown) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(data));
     } else {

@@ -6,6 +6,7 @@ Exports material layer weightmaps for UE5 Landscape
 import json
 from pathlib import Path
 from typing import Dict, Optional
+
 import numpy as np
 from PIL import Image
 
@@ -57,7 +58,7 @@ class Unreal5WeightmapExporter(BaseExporter):
 
         channel_names = {"R": "rock", "G": "grass", "B": "dirt", "A": "sand"}
 
-        for idx, (channel, name) in enumerate(channel_names.items()):
+        for idx, (_channel, name) in enumerate(channel_names.items()):
             if name in weightmaps:
                 weightmap_rgba[:, :, idx] = (weightmaps[name] * 255).astype(
                     np.uint8
@@ -67,7 +68,7 @@ class Unreal5WeightmapExporter(BaseExporter):
         filename = f"{terrain_data.name}_weightmap.png"
         filepath = self.output_dir / filename
 
-        image = Image.fromarray(weightmap_rgba, mode="RGBA")
+        image = Image.fromarray(weightmap_rgba)
         image.save(filepath)
 
         output_files["weightmap"] = filepath

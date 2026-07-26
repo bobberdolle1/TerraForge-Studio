@@ -3,16 +3,17 @@ Azure Maps Data Source
 Vector data, routing, and POI from Microsoft Azure
 """
 
-from typing import Optional, Dict, Any
-import numpy as np
+from typing import Any, Dict, Optional
+
 import httpx
+import numpy as np
 
 from .base import (
     BaseDataSource,
-    DataSourceType,
-    DataSourceCapability,
     BoundingBox,
+    DataSourceCapability,
     DataSourceConfig,
+    DataSourceType,
 )
 
 
@@ -83,8 +84,8 @@ class AzureMapsSource(BaseDataSource):
             url = f"{self.elevation_url}/lattice/json"
 
             # Create grid of points
-            lats = np.linspace(bbox.south, bbox.north, resolution)
-            lons = np.linspace(bbox.west, bbox.east, resolution)
+            np.linspace(bbox.south, bbox.north, resolution)
+            np.linspace(bbox.west, bbox.east, resolution)
 
             # Azure Maps accepts max 2000 points per request
             # For large resolutions, we need to chunk

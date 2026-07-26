@@ -3,11 +3,11 @@ OpenTopography Data Source
 High-resolution elevation data from LiDAR and global DEMs
 """
 
-import asyncio
-from typing import Optional, Dict, Any
-import numpy as np
-import httpx
 from io import BytesIO
+from typing import Any, Dict, Optional
+
+import httpx
+import numpy as np
 
 # Rasterio is optional - desktop version may not have it
 try:
@@ -19,10 +19,10 @@ except ImportError:
 
 from .base import (
     BaseDataSource,
-    DataSourceType,
-    DataSourceCapability,
     BoundingBox,
+    DataSourceCapability,
     DataSourceConfig,
+    DataSourceType,
 )
 
 

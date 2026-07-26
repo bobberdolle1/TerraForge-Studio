@@ -2,20 +2,14 @@
  * Theme Context - Manages dark mode and system theme preferences
  */
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { useEffect, useState, ReactNode } from 'react';
 
-type Theme = 'light' | 'dark' | 'auto';
-type ResolvedTheme = 'light' | 'dark';
-
-interface ThemeContextType {
-  theme: Theme;
-  setTheme: (theme: Theme) => void;
-  resolvedTheme: ResolvedTheme;
-}
-
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
-
-const STORAGE_KEY = 'terraforge-theme';
+import {
+  STORAGE_KEY,
+  ThemeContext,
+  type ResolvedTheme,
+  type Theme,
+} from './theme-context';
 
 interface ThemeProviderProps {
   children: ReactNode;
@@ -96,12 +90,3 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     </ThemeContext.Provider>
   );
 };
-
-export const useTheme = (): ThemeContextType => {
-  const context = useContext(ThemeContext);
-  if (context === undefined) {
-    throw new Error('useTheme must be used within a ThemeProvider');
-  }
-  return context;
-};
-

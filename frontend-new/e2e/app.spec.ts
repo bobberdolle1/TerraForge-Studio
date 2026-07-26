@@ -112,7 +112,7 @@ test.describe('Performance', () => {
     });
 
     // CesiumJS should be in a separate chunk
-    const hasCesiumChunk = resources.some(r => r.includes('cesium'));
+    const _hasCesiumChunk = resources.some(r => r.includes('cesium'));
     
     // This assertion depends on whether CesiumJS is used on the initial page
     // Adjust based on actual implementation

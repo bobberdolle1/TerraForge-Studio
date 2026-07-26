@@ -4,9 +4,10 @@ Defines interface for all geospatial data providers
 """
 
 from abc import ABC, abstractmethod
-from enum import Enum
-from typing import Optional, Dict, Any, Tuple
 from dataclasses import dataclass
+from enum import Enum
+from typing import Any, Dict, Optional, Tuple
+
 import numpy as np
 
 # Shapely is optional - desktop version may not have it

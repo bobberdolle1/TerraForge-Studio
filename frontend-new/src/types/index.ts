@@ -9,18 +9,18 @@ export interface BoundingBox {
   west: number;
 }
 
-// Helper function for BoundingBox
+/**
+ * Approximate area of a bounding box in km².
+ *
+ * Uses the same constants as the backend (`BoundingBox.area_km2`) so the area
+ * shown in the UI matches the value the server validates against.
+ */
 export function calculateArea(bbox: BoundingBox): number {
-  // Approximate area in km² (simplified calculation)
-  const latDiff = Math.abs(bbox.north - bbox.south);
-  const lonDiff = Math.abs(bbox.east - bbox.west);
   const avgLat = (bbox.north + bbox.south) / 2;
-  
-  // 1 degree latitude ≈ 111 km
-  // 1 degree longitude ≈ 111 km * cos(latitude)
-  const kmLat = latDiff * 111;
-  const kmLon = lonDiff * 111 * Math.cos(avgLat * Math.PI / 180);
-  
+
+  const kmLat = Math.abs(bbox.north - bbox.south) * 110.574;
+  const kmLon = Math.abs(bbox.east - bbox.west) * 111.32 * Math.cos((avgLat * Math.PI) / 180);
+
   return kmLat * kmLon;
 }
 
@@ -42,28 +42,60 @@ export interface TerrainGenerationRequest {
   enable_3d_preview?: boolean;
 }
 
+export type TaskStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
+
+/** Where the heightmap's elevation values actually came from. */
+export interface ElevationProvenance {
+  source: string;
+  /** True when the terrain is procedural, not measured real-world data. */
+  synthetic: boolean;
+  min_elevation_m: number;
+  max_elevation_m: number;
+}
+
+/** Outcome of exporting to one target format. */
+export interface ExportResult {
+  format: string;
+  success: boolean;
+  directory?: string | null;
+  files: Record<string, string>;
+  error?: string | null;
+}
+
+export interface GenerationResult {
+  terrain_name: string;
+  resolution: number;
+  area_km2: number;
+  bbox: BoundingBox;
+  elevation: ElevationProvenance;
+  exports: ExportResult[];
+  output_directory: string;
+  thumbnail_path?: string | null;
+  /** Data URI (`data:image/png;base64,...`) ready to use as an <img> src. */
+  thumbnail_base64?: string | null;
+  duration_seconds?: number | null;
+  cached: boolean;
+}
+
 export interface GenerationStatus {
   task_id: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: TaskStatus;
   progress: number;
   current_step: string;
-  message?: string;
-  error?: string;
-  download_url?: string;
-  thumbnail_base64?: string;
-  result?: {
-    terrain_name: string;
-    resolution: number;
-    area_km2: number;
-    elevation_range: {
-      min: number;
-      max: number;
-    };
-    exports: Record<string, any>;
-    output_directory: string;
-    thumbnail?: string;
-    thumbnail_base64?: string;
-  };
+  message?: string | null;
+  error?: string | null;
+  /** Non-fatal issues, e.g. a single export format that failed. */
+  warnings: string[];
+  download_url?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  result?: GenerationResult | null;
+}
+
+/** Response shape of `GET /api/tasks`. */
+export interface TaskListResponse {
+  count: number;
+  tasks: GenerationStatus[];
 }
 
 export interface DataSource {
@@ -88,13 +120,16 @@ export interface ExportFormatInfo {
 export interface HealthStatus {
   status: string;
   version: string;
+  environment?: string;
   data_sources: {
     available: string[];
+    configured?: string[];
     total: number;
   };
   settings: {
     max_area_km2: number;
     default_resolution: number;
+    synthetic_fallback?: boolean;
   };
 }
 

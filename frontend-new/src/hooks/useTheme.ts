@@ -1,24 +1,20 @@
-import { useEffect } from 'react';
-import useLocalStorage from './useLocalStorage';
+/**
+ * Access the current theme and the setter that persists it.
+ *
+ * Throws when used outside a ThemeProvider, so a missing provider surfaces
+ * immediately instead of silently rendering with undefined values.
+ */
 
-export type Theme = 'light' | 'dark' | 'system';
+import { useContext } from 'react';
 
-export function useTheme() {
-  const [theme, setTheme] = useLocalStorage<Theme>('terraforge-theme', 'system');
+import { ThemeContext, type ThemeContextType } from '../contexts/theme-context';
 
-  useEffect(() => {
-    const root = window.document.documentElement;
-    root.classList.remove('light', 'dark');
+export const useTheme = (): ThemeContextType => {
+  const context = useContext(ThemeContext);
+  if (context === undefined) {
+    throw new Error('useTheme must be used within a ThemeProvider');
+  }
+  return context;
+};
 
-    if (theme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
-        ? 'dark'
-        : 'light';
-      root.classList.add(systemTheme);
-    } else {
-      root.classList.add(theme);
-    }
-  }, [theme]);
-
-  return { theme, setTheme };
-}
+export type { Theme, ResolvedTheme } from '../contexts/theme-context';

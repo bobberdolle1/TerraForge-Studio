@@ -3,15 +3,24 @@ TerraForge Studio - Data Sources Module
 Adapters for various geospatial data providers
 """
 
-from .base import BaseDataSource, DataSourceType, DataSourceCapability
-from .sentinel_hub import SentinelHubSource
-from .opentopography import OpenTopographySource
 from .azure_maps import AzureMapsSource
+from .base import (
+    BaseDataSource,
+    BoundingBox,
+    DataSourceCapability,
+    DataSourceConfig,
+    DataSourceType,
+)
 from .earth_engine import EarthEngineSource
+from .opentopography import OpenTopographySource
 from .osm_source import OSMSource
+from .sentinel_hub import SentinelHubSource
+from .srtm import SRTMSource
 
 __all__ = [
     "BaseDataSource",
+    "BoundingBox",
+    "DataSourceConfig",
     "DataSourceType",
     "DataSourceCapability",
     "SentinelHubSource",
@@ -19,5 +28,6 @@ __all__ = [
     "AzureMapsSource",
     "EarthEngineSource",
     "OSMSource",
+    "SRTMSource",
 ]
 

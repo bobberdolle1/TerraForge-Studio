@@ -12,17 +12,17 @@ interface BatchJob {
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
   progress: number;
   error?: string;
-  result?: any;
+  result?: Record<string, unknown>;
   created_at: string;
   started_at?: string;
   completed_at?: string;
 }
 
 interface QueueManagerProps {
-  onRefresh?: () => void;
+  onClose: () => void;
 }
 
-const QueueManager: React.FC<QueueManagerProps> = ({ onRefresh: _onRefresh }) => {
+const QueueManager: React.FC<QueueManagerProps> = ({ onClose }) => {
   const [jobs, setJobs] = useState<BatchJob[]>([]);
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState({
@@ -127,7 +127,8 @@ const QueueManager: React.FC<QueueManagerProps> = ({ onRefresh: _onRefresh }) =>
   };
 
   return (
-    <div className="glass rounded-lg p-6 shadow-lg">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="glass max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-lg p-6 shadow-lg">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -147,6 +148,13 @@ const QueueManager: React.FC<QueueManagerProps> = ({ onRefresh: _onRefresh }) =>
           >
             <Trash2 className="w-4 h-4" />
             <span>Clear Completed</span>
+          </button>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition"
+          >
+            <X className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -247,6 +255,7 @@ const QueueManager: React.FC<QueueManagerProps> = ({ onRefresh: _onRefresh }) =>
             </div>
           ))
         )}
+      </div>
       </div>
     </div>
   );

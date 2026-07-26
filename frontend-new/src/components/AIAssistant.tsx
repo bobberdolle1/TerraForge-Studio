@@ -25,7 +25,7 @@ interface TerrainAnalysis {
 
 interface AIAssistantProps {
   bbox: BoundingBox | null;
-  onApplyRecommendations?: (settings: any) => void;
+  onApplyRecommendations?: (settings: Record<string, unknown>) => void;
 }
 
 const AIAssistant: React.FC<AIAssistantProps> = ({ bbox, onApplyRecommendations }) => {

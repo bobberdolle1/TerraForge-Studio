@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { Globe, Settings as SettingsIcon, Download, Map, Box, History, Database, Share2 } from 'lucide-react';
+import { Globe, Settings as SettingsIcon, Download, Map, Box, History, Database, Share2, ListChecks, Plug } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import KeyboardShortcuts from './components/KeyboardShortcuts';
 import MapSelector from './components/MapSelector';
@@ -19,14 +19,23 @@ import CacheManager from './components/CacheManager';
 import ShareDialog from './components/ShareDialog';
 import ShareManager from './components/ShareManager';
 import MobileNav from './components/MobileNav';
-import { terraforgeApi } from './services/api';
+import QueueManager from './components/QueueManager';
+import BatchProcessor from './components/BatchProcessor';
+import PluginMarketplace from './components/PluginMarketplace';
+import { api, terraforgeApi } from './services/api';
 import { settingsApi } from './services/settings-api';
 import { notify } from './utils/toast';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useIsMobile } from './hooks/useMediaQuery';
 import { historyStorage } from './utils/history-storage';
-import type { BoundingBox, ExportFormat, ElevationSource, GenerationStatus } from './types';
+import type {
+  BoundingBox,
+  ExportFormat,
+  ElevationSource,
+  GenerationStatus,
+  HealthStatus,
+} from './types';
 import type { GenerationHistoryItem } from './types/history';
 
 function App() {
@@ -43,13 +52,16 @@ function App() {
   });
   const [activeTab, setActiveTab] = useState<'2d' | '3d'>('2d');
   const [currentTask, setCurrentTask] = useState<GenerationStatus | null>(null);
-  const [appHealth, setAppHealth] = useState<any>(null);
+  const [appHealth, setAppHealth] = useState<HealthStatus | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showCache, setShowCache] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [showShareManager, setShowShareManager] = useState(false);
+  const [showQueue, setShowQueue] = useState(false);
+  const [showBatch, setShowBatch] = useState(false);
+  const [showPlugins, setShowPlugins] = useState(false);
   const [aiEnabled, setAiEnabled] = useState(false);
   const [wsUrl, setWsUrl] = useState<string | null>(null);
   const generationStartTime = useRef<number>(0);
@@ -59,33 +71,31 @@ function App() {
 
   // WebSocket connection for live updates
   useWebSocket(wsUrl, {
-    onMessage: (data) => {
-      if (data.type === 'status_update') {
-        setCurrentTask({
-          task_id: data.task_id,
-          status: data.status,
-          progress: data.progress,
-          current_step: data.current_step,
-          message: data.message,
-          error: data.error,
-          download_url: data.download_url,
-        });
+    onMessage: (message) => {
+      if (message.type !== 'status_update') return;
 
-        // Handle completion/failure
-        if (data.status === 'completed') {
-          notify.success('Terrain generation completed!');
-          saveToHistory(data, 'completed', data.thumbnail_base64);
-        } else if (data.status === 'failed') {
-          notify.error('Terrain generation failed');
-          saveToHistory(data, 'failed');
-        }
+      // The server sends the full GenerationStatus payload alongside `type`,
+      // which is envelope-only and dropped here. `warnings` is defaulted so a
+      // server predating that field still yields a well-formed task.
+      const { type: _type, ...rest } = message;
+      const incoming = rest as unknown as GenerationStatus;
+      const task: GenerationStatus = { ...incoming, warnings: incoming.warnings ?? [] };
+
+      setCurrentTask(task);
+
+      if (task.status === 'completed') {
+        notify.success('Terrain generation completed!');
+        saveToHistory(task, 'completed', task.result?.thumbnail_base64 ?? undefined);
+      } else if (task.status === 'failed') {
+        notify.error('Terrain generation failed');
+        saveToHistory(task, 'failed');
       }
     },
     onOpen: () => {
       notify.info('Connected to live updates');
     },
     onClose: () => {
-      console.log('WebSocket connection closed');
+      // Reconnection is handled by the hook; nothing to do here.
     },
     reconnect: true,
   });
@@ -109,12 +119,15 @@ function App() {
       setAppHealth(health);
       setShowWizard(firstRun.show_wizard);
       setAiEnabled(settings?.ai?.enabled || false);
-      console.log('AI enabled:', settings?.ai?.enabled);
     }).catch(console.error);
   }, []);
 
   // Helper function to save generation to history
-  const saveToHistory = (data: any, status: 'completed' | 'failed', thumbnail?: string) => {
+  const saveToHistory = (
+    data: GenerationStatus,
+    status: 'completed' | 'failed',
+    thumbnail?: string,
+  ) => {
     if (!selectedBbox || !currentTask) return;
 
     const duration = Date.now() - generationStartTime.current;
@@ -132,7 +145,7 @@ function App() {
         enableWeightmaps: true,
       },
       status,
-      downloadUrl: data.download_url,
+      downloadUrl: data.download_url ?? undefined,
       thumbnail: thumbnail,
       stats: {
         duration,
@@ -191,6 +204,9 @@ function App() {
       if (showCache) setShowCache(false);
       if (showShare) setShowShare(false);
       if (showShareManager) setShowShareManager(false);
+      if (showQueue) setShowQueue(false);
+      if (showBatch) setShowBatch(false);
+      if (showPlugins) setShowPlugins(false);
     },
   });
 
@@ -238,6 +254,39 @@ function App() {
       console.error('Generation failed:', error);
       notify.dismiss(loadingToast);
       notify.error('Failed to start terrain generation');
+    }
+  };
+
+  const handleSubmitBatch = async (jobs: Array<{
+    name: string;
+    bbox: BoundingBox | null;
+    resolution: number;
+    exportFormats: ExportFormat[];
+    elevationSource: ElevationSource;
+  }>) => {
+    const ready = jobs.filter((job) => job.bbox !== null);
+    if (ready.length === 0) {
+      notify.error('Each batch job needs an area selected');
+      return;
+    }
+
+    try {
+      await api.post('/api/batch/add', {
+        jobs: ready.map((job) => ({
+          name: job.name,
+          bbox: job.bbox,
+          resolution: job.resolution,
+          export_formats: job.exportFormats,
+          elevation_source: job.elevationSource,
+        })),
+        priority: 0,
+      });
+
+      notify.success(`Queued ${ready.length} job(s)`);
+      setShowBatch(false);
+      setShowQueue(true);
+    } catch {
+      notify.error('Could not queue batch jobs');
     }
   };
 
@@ -305,6 +354,33 @@ function App() {
         />
       )}
 
+      {/* Batch queue */}
+      {showQueue && <QueueManager onClose={() => setShowQueue(false)} />}
+
+      {/* Plugins */}
+      {showPlugins && <PluginMarketplace onClose={() => setShowPlugins(false)} />}
+
+      {/* Batch job builder */}
+      {showBatch && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-lg bg-white shadow-xl dark:bg-gray-900">
+            <div className="flex items-center justify-between border-b border-gray-200 p-4 dark:border-gray-700">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Batch Generation
+              </h2>
+              <button
+                onClick={() => setShowBatch(false)}
+                aria-label="Close"
+                className="rounded-md p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                &times;
+              </button>
+            </div>
+            <BatchProcessor onSubmitBatch={handleSubmitBatch} />
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="glass border-b border-gray-200 dark:border-gray-700">
         <div className={`container mx-auto px-4 ${isMobile ? 'py-2' : 'py-4'}`}>
@@ -352,6 +428,24 @@ function App() {
                   >
                     <Database className="w-5 h-5" />
                     <span className="hidden xl:inline">{t('nav.cache')}</span>
+                  </button>
+
+                  <button
+                    onClick={() => setShowQueue(true)}
+                    className="flex items-center space-x-2 px-4 py-2 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white rounded-md border border-gray-300 dark:border-gray-600 transition"
+                    title="Batch queue"
+                  >
+                    <ListChecks className="w-5 h-5" />
+                    <span className="hidden xl:inline">Queue</span>
+                  </button>
+
+                  <button
+                    onClick={() => setShowPlugins(true)}
+                    className="flex items-center space-x-2 px-4 py-2 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-white rounded-md border border-gray-300 dark:border-gray-600 transition"
+                    title="Plugins"
+                  >
+                    <Plug className="w-5 h-5" />
+                    <span className="hidden xl:inline">Plugins</span>
                   </button>
 
                   <button
@@ -448,7 +542,7 @@ function App() {
               <div className="glass rounded-lg p-6 shadow-lg">
                 <AIAssistant
                   bbox={selectedBbox}
-                  onApplyRecommendations={(settings) => {
+                  onApplyRecommendations={(_settings) => {
                     // Apply AI recommendations to export config
                     notify.success('AI recommendations applied');
                   }}

@@ -2,7 +2,8 @@
  * Generation Status Monitor
  */
 
-import { CheckCircle, XCircle, Loader, Download } from 'lucide-react';
+import { CheckCircle, XCircle, Loader, Download, AlertTriangle } from 'lucide-react';
+import { terraforgeApi } from '@/services/api';
 import type { GenerationStatus } from '@/types';
 
 interface StatusMonitorProps {
@@ -68,34 +69,68 @@ const StatusMonitor: React.FC<StatusMonitorProps> = ({ status }) => {
         </div>
       )}
 
+      {/* Non-fatal warnings, e.g. a format that failed or synthetic elevation */}
+      {status.warnings?.length > 0 && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md p-3 space-y-1">
+          {status.warnings.map((warning, index) => (
+            <p
+              key={index}
+              className="flex items-start gap-2 text-sm text-amber-800 dark:text-amber-200"
+            >
+              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>{warning}</span>
+            </p>
+          ))}
+        </div>
+      )}
+
       {/* Success Result */}
       {status.result && (
         <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md p-4 space-y-3">
           <h4 className="font-semibold text-green-900 dark:text-green-100">Generation Complete!</h4>
-          
+
           <div className="text-sm text-green-800 dark:text-green-200 space-y-1">
             <p><strong>Terrain:</strong> {status.result.terrain_name}</p>
             <p><strong>Resolution:</strong> {status.result.resolution}x{status.result.resolution}</p>
             <p><strong>Area:</strong> {status.result.area_km2.toFixed(2)} km²</p>
             <p>
-              <strong>Elevation:</strong> {status.result.elevation_range.min.toFixed(1)}m 
-              - {status.result.elevation_range.max.toFixed(1)}m
+              <strong>Elevation:</strong> {status.result.elevation.min_elevation_m.toFixed(1)}m
+              {' - '}{status.result.elevation.max_elevation_m.toFixed(1)}m
+              {' '}
+              <span className="opacity-75">
+                ({status.result.elevation.synthetic
+                  ? 'synthetic'
+                  : `source: ${status.result.elevation.source}`})
+              </span>
             </p>
+            {status.result.duration_seconds != null && (
+              <p><strong>Duration:</strong> {status.result.duration_seconds.toFixed(1)}s</p>
+            )}
           </div>
 
           {/* Export Downloads */}
           <div className="pt-3 border-t border-green-300 dark:border-green-700">
             <p className="text-sm font-semibold text-green-900 dark:text-green-100 mb-2">Exports:</p>
             <div className="space-y-2">
-              {Object.keys(status.result.exports).map(format => (
+              {status.result.exports.filter(exp => exp.success).map(exp => (
                 <a
-                  key={format}
-                  href={`/api/download/${status.task_id}/${format}`}
+                  key={exp.format}
+                  href={terraforgeApi.downloadUrl(status.result!.terrain_name, 'zip')}
                   className="flex items-center justify-between px-3 py-2 bg-white dark:bg-gray-800 rounded-md hover:bg-green-100 dark:hover:bg-green-900/30 transition"
                 >
-                  <span className="text-sm text-gray-700 dark:text-gray-300 capitalize">{format}</span>
+                  <span className="text-sm text-gray-700 dark:text-gray-300 capitalize">{exp.format}</span>
                   <Download className="w-4 h-4 text-green-600 dark:text-green-400" />
                 </a>
+              ))}
+              {status.result.exports.filter(exp => !exp.success).map(exp => (
+                <div
+                  key={exp.format}
+                  className="px-3 py-2 bg-white dark:bg-gray-800 rounded-md opacity-60"
+                >
+                  <span className="text-sm text-gray-500 dark:text-gray-400 capitalize">
+                    {exp.format} - failed
+                  </span>
+                </div>
               ))}
             </div>
           </div>

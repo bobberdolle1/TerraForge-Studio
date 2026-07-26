@@ -5,16 +5,19 @@
 
 import { useEffect } from 'react';
 import { Sun, Moon, Monitor } from 'lucide-react';
-import { useTheme } from '../contexts/ThemeContext';
+import { useTheme } from '../hooks/useTheme';
+
+// Declared outside the component so the array identity is stable; recreating
+// it each render would re-subscribe the effect below on every render.
+const themes = [
+  { value: 'light' as const, icon: Sun, label: 'Light' },
+  { value: 'dark' as const, icon: Moon, label: 'Dark' },
+  { value: 'auto' as const, icon: Monitor, label: 'Auto' },
+];
 
 const ThemeToggle: React.FC = () => {
   const { theme, setTheme, resolvedTheme } = useTheme();
 
-  const themes = [
-    { value: 'light' as const, icon: Sun, label: 'Light' },
-    { value: 'dark' as const, icon: Moon, label: 'Dark' },
-    { value: 'auto' as const, icon: Monitor, label: 'Auto' },
-  ];
 
   // Listen for keyboard shortcut toggle event
   useEffect(() => {

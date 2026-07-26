@@ -38,7 +38,7 @@ export const settingsApi = {
   },
 
   // Export settings
-  exportSettings: async (includeCredentials: boolean = false): Promise<any> => {
+  exportSettings: async (includeCredentials: boolean = false): Promise<Record<string, unknown>> => {
     const response = await api.get('/api/settings/export', {
       params: { include_credentials: includeCredentials },
     });
@@ -46,7 +46,7 @@ export const settingsApi = {
   },
 
   // Import settings
-  importSettings: async (data: any): Promise<UserSettings> => {
+  importSettings: async (data: Record<string, unknown>): Promise<UserSettings> => {
     const response = await api.post<UserSettings>('/api/settings/import', data);
     return response.data;
   },
