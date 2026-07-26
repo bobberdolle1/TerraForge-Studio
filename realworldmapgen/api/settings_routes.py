@@ -77,14 +77,9 @@ async def test_connection(source: str):
         Success status and error message if any
     """
     try:
-        success, error = settings_manager.test_connection(source)
-
-        return {
-            "source": source,
-            "success": success,
-            "error": error,
-            "message": "Connection successful" if success else error
-        }
+        # The manager performs a real request and reports both whether the
+        # source is configured and whether it was actually reachable.
+        return await settings_manager.test_connection(source)
     except Exception as e:
         logger.error(f"Connection test failed for {source}: {e}")
         return {

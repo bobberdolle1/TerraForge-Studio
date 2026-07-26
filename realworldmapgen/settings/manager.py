@@ -139,48 +139,58 @@ class SettingsManager:
             ),
         )
 
-    def test_connection(self, source: str) -> tuple[bool, Optional[str]]:
+    async def test_connection(self, source: str) -> Dict[str, Any]:
         """
-        Test connection to data source.
+        Probe a data source with a real request.
+
+        This used to only check that a credential string was non-empty and
+        then report "Connection successful", so a typo'd, expired or revoked
+        key still showed green in the settings UI. Each source is now actually
+        contacted, and only a completed round trip counts as success.
 
         Args:
-            source: Source name (sentinelhub, opentopography, azure_maps)
+            source: sentinelhub, opentopography, azure_maps, srtm, or osm
 
         Returns:
-            Tuple of (success, error_message)
+            Dict with success, configured, reachable and a human-readable
+            message.
         """
-        # TODO: Implement actual connection tests
-        # For now, just check if credentials are configured
+        from . import connection_test as probes
 
-        settings = self.get()
-        creds = settings.credentials
+        creds = self.get().credentials
+
+        if source == "srtm":
+            return (await probes.test_srtm()).as_dict()
+
+        if source == "osm":
+            return (await probes.test_overpass()).as_dict()
 
         if source == "sentinelhub":
             if not creds.sentinelhub.enabled:
-                return False, "Sentinel Hub is disabled"
-            if not creds.sentinelhub.client_id or not creds.sentinelhub.client_secret:
-                return False, "Missing client ID or secret"
-            return True, None
+                return probes.ConnectionResult(
+                    source, False, None, "Sentinel Hub is disabled"
+                ).as_dict()
+            return (
+                await probes.test_sentinelhub(
+                    creds.sentinelhub.client_id, creds.sentinelhub.client_secret
+                )
+            ).as_dict()
 
-        elif source == "opentopography":
+        if source == "opentopography":
             if not creds.opentopography.enabled:
-                return False, "OpenTopography is disabled"
-            if not creds.opentopography.api_key:
-                return False, "Missing API key"
-            return True, None
+                return probes.ConnectionResult(
+                    source, False, None, "OpenTopography is disabled"
+                ).as_dict()
+            return (await probes.test_opentopography(creds.opentopography.api_key)).as_dict()
 
-        elif source == "azure_maps":
+        if source == "azure_maps":
             if not creds.azure_maps.enabled:
-                return False, "Azure Maps is disabled"
-            if not creds.azure_maps.subscription_key:
-                return False, "Missing subscription key"
-            return True, None
+                return probes.ConnectionResult(
+                    source, False, None, "Azure Maps is disabled"
+                ).as_dict()
+            return (await probes.test_azure_maps(creds.azure_maps.subscription_key)).as_dict()
 
-        elif source == "osm":
-            # OSM is always available
-            return True, None
-
-        return False, f"Unknown source: {source}"
+        return probes.ConnectionResult(source, False, None, f"Unknown source: {source}").as_dict()
 
     def export_settings(self, include_credentials: bool = False) -> Dict[str, Any]:
         """
