@@ -16,6 +16,7 @@ Base URL in these examples: `http://localhost:8000`
 - [Task management](#task-management)
 - [Downloads](#downloads)
 - [Batch processing](#batch-processing)
+- [Vector data (roads and buildings)](#vector-data-roads-and-buildings)
 - [Webhooks](#webhooks)
 - [Rate limiting](#rate-limiting)
 
@@ -121,7 +122,7 @@ curl -X POST http://localhost:8000/api/generate \
 | `export_formats` | array | `["unreal5"]` | `unreal5`, `unity`, `gltf`, `geotiff`, or `all` |
 | `elevation_source` | string | `"auto"` | `auto`, `srtm`, `opentopography`, `azure_maps`, `sentinelhub` |
 | `enable_weightmaps` | bool | `true` | Material layers for UE5/Unity |
-| `enable_roads` / `enable_buildings` | bool | `true` | Requires the optional OSM extras |
+| `enable_roads` / `enable_buildings` | bool | `true` | Fetched from OpenStreetMap; see [Vector data](#vector-data-roads-and-buildings) |
 
 Responds **202 Accepted** with a queued task:
 
@@ -195,6 +196,25 @@ Two fields deserve attention:
 - **`exports`** reports each format independently. A format can fail (usually a
   missing optional dependency) while others succeed; the task only fails when
   *every* format fails.
+
+When roads or buildings are requested and retrieved, the result also carries a
+`vectors` block:
+
+```json
+"vectors": {
+  "source": "overpass",
+  "roads": 128,
+  "buildings": 342,
+  "landuse": 0,
+  "path": "output/san_francisco/vectors.geojson"
+}
+```
+
+The features are written to `vectors.geojson` in the output directory (and
+therefore included in the zip download) as a GeoJSON FeatureCollection: roads
+as `LineString`, buildings and land use as closed `Polygon`. Each feature keeps
+its OSM attributes - lanes, maxspeed, surface, oneway for roads; building type
+and levels for buildings.
 
 ### List tasks
 
@@ -335,6 +355,37 @@ order or whitespace changes the digest.
 Failed deliveries are retried up to three times with exponential backoff.
 A 4xx response is treated as a permanent rejection and is not retried. A
 subscriber that is down never affects the generation that triggered the event.
+
+---
+
+## Vector data (roads and buildings)
+
+Roads and buildings come from OpenStreetMap. Two paths exist:
+
+| Source | Requirements | Notes |
+|---|---|---|
+| **Overpass** (default) | none beyond `httpx` | Plain HTTP against public Overpass mirrors |
+| osmnx | `pip install -r requirements-optional.txt` | Richer attributes, pulls in geopandas/GDAL |
+
+Overpass is queried first when osmnx is not installed, so vector data works on
+a default install. Configure it in `.env`:
+
+```bash
+OVERPASS_ENABLED=true
+OVERPASS_ENDPOINTS=https://overpass-api.de/api/interpreter,https://lz4.overpass-api.de/api/interpreter
+OVERPASS_TIMEOUT=90
+OVERPASS_MAX_AREA_KM2=25.0
+```
+
+Requests fall back across the configured mirrors and retry on 429/502/503/504,
+since Overpass instances rate-limit independently. Areas larger than
+`OVERPASS_MAX_AREA_KM2` are skipped rather than submitted - Overpass is a
+shared public service and large queries are expensive for it. When that
+happens, or when every mirror fails, the task completes with a warning and no
+`vectors` block rather than failing.
+
+Footpaths, cycleways, steps and private-access ways are excluded from road
+extraction.
 
 ---
 

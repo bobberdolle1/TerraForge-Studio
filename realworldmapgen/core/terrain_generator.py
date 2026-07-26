@@ -5,6 +5,7 @@ Main orchestrator for terrain generation with multi-source and multi-format supp
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 import uuid
@@ -33,6 +34,7 @@ from ..models import (
     GenerationStatus,
     MapGenerationRequest,
     TaskStatus,
+    VectorSummary,
 )
 from .cache_manager import get_cache_manager
 from .plugin_system import get_plugin_registry
@@ -41,6 +43,7 @@ from .sources import (
     EarthEngineSource,
     OpenTopographySource,
     OSMSource,
+    OverpassSource,
     SentinelHubSource,
     SRTMSource,
 )
@@ -145,6 +148,17 @@ class TerraForgeGenerator:
                         "private_key_path": settings.google_earth_engine_private_key_path,
                     },
                 )
+            )
+
+        # Overpass first: it needs only httpx, so vector data works on a
+        # default install. OSMSource is richer but pulls in the whole
+        # geopandas/GDAL stack.
+        if settings.overpass_enabled:
+            sources["overpass"] = OverpassSource(
+                DataSourceConfig(enabled=True, timeout=settings.overpass_timeout),
+                endpoints=settings.overpass_endpoints,
+                user_agent=settings.osm_user_agent,
+                max_area_km2=settings.overpass_max_area_km2,
             )
 
         if settings.osm_enabled:
@@ -252,13 +266,19 @@ class TerraForgeGenerator:
                 )
 
             # --- Step 2: vector features ---------------------------------
-            vector_data = None
+            organized_vectors: Optional[Dict[str, List[Any]]] = None
+            vector_summary: Optional[VectorSummary] = None
             if request.enable_roads or request.enable_buildings:
                 self._advance(status, "Extracting vector features", 30.0)
-                vector_data = await self._get_vector_data(bbox, request)
-                if vector_data is None:
+                fetched = await self._get_vector_data(bbox, request)
+                if fetched is None:
                     status.add_warning(
                         "No vector data (roads/buildings) could be retrieved for this area."
+                    )
+                else:
+                    vector_source, organized_vectors = fetched
+                    vector_summary = self._write_vectors(
+                        vector_source, organized_vectors, output_dir
                     )
 
             # --- Step 3: weightmaps --------------------------------------
@@ -278,8 +298,8 @@ class TerraForgeGenerator:
                 bbox_west=request.bbox.west,
                 name=request.name,
                 weightmaps=weightmaps,
-                roads=vector_data.get("roads") if vector_data else None,
-                buildings=vector_data.get("buildings") if vector_data else None,
+                roads=organized_vectors.get("roads") if organized_vectors else None,
+                buildings=organized_vectors.get("buildings") if organized_vectors else None,
             )
 
             # --- Step 5: export ------------------------------------------
@@ -311,6 +331,7 @@ class TerraForgeGenerator:
                 area_km2=round(area_km2, 4),
                 bbox=request.bbox,
                 elevation=provenance,
+                vectors=vector_summary,
                 exports=exports,
                 output_directory=str(output_dir),
                 thumbnail_path=str(thumbnail_path) if thumbnail_path else None,
@@ -437,16 +458,24 @@ class TerraForgeGenerator:
     # ------------------------------------------------------------------
     async def _get_vector_data(
         self, bbox: SourceBBox, request: MapGenerationRequest
-    ) -> Optional[Dict[str, Any]]:
-        """Get vector data (roads, buildings) from OSM or Azure Maps"""
+    ) -> Optional[Tuple[str, Dict[str, Any]]]:
+        """
+        Fetch vector features, returning ``(source_name, organized)``.
 
+        Sources are tried in order; the first one returning features wins.
+        """
         feature_types = []
         if request.enable_roads:
             feature_types.append("roads")
         if request.enable_buildings:
             feature_types.append("buildings")
 
-        for source_name in ("osm", "azure_maps"):
+        if not feature_types:
+            return None
+
+        # osm (osmnx) first when its optional stack is installed, otherwise
+        # overpass, which needs nothing beyond httpx.
+        for source_name in ("osm", "overpass", "azure_maps"):
             source = self.sources.get(source_name)
             if source is None:
                 continue
@@ -455,28 +484,83 @@ class TerraForgeGenerator:
                     continue
                 vector_data = await source.get_vector_data(bbox, feature_types)
                 if vector_data:
-                    return self._organize_vector_data(vector_data)
+                    organized = self._organize_vector_data(vector_data)
+                    if any(organized.values()):
+                        return source_name, organized
             except Exception as exc:
                 logger.warning("%s vector data failed: %s", source_name, exc)
 
         return None
 
     @staticmethod
-    def _organize_vector_data(raw_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Organize raw vector data by type"""
+    def _organize_vector_data(raw_data: Dict[str, Any]) -> Dict[str, List[Any]]:
+        """Group GeoJSON features by their ``properties.type``."""
 
-        organized: Dict[str, List[Any]] = {"roads": [], "buildings": [], "poi": []}
+        organized: Dict[str, List[Any]] = {
+            "roads": [],
+            "buildings": [],
+            "landuse": [],
+            "poi": [],
+        }
+        bucket = {
+            "road": "roads",
+            "building": "buildings",
+            "landuse": "landuse",
+            "poi": "poi",
+        }
 
         for feature in raw_data.get("features", []):
-            ftype = feature.get("properties", {}).get("type", "")
-            if ftype == "road":
-                organized["roads"].append(feature)
-            elif ftype == "building":
-                organized["buildings"].append(feature)
-            elif ftype == "poi":
-                organized["poi"].append(feature)
+            key = bucket.get(feature.get("properties", {}).get("type", ""))
+            if key:
+                organized[key].append(feature)
 
         return organized
+
+    @staticmethod
+    def _write_vectors(
+        source_name: str, organized: Dict[str, List[Any]], output_dir: Path
+    ) -> VectorSummary:
+        """
+        Write features to ``vectors.geojson`` beside the terrain exports.
+
+        Without this the data would be fetched and dropped: no exporter reads
+        TerrainData.roads or .buildings, so the file is what actually reaches
+        the user (it is picked up by the zip download).
+        """
+        features = [
+            feature
+            for key in ("roads", "buildings", "landuse", "poi")
+            for feature in organized.get(key, [])
+        ]
+
+        summary = VectorSummary(
+            source=source_name,
+            roads=len(organized.get("roads", [])),
+            buildings=len(organized.get("buildings", [])),
+            landuse=len(organized.get("landuse", [])),
+        )
+
+        if not features:
+            return summary
+
+        path = output_dir / "vectors.geojson"
+        try:
+            path.write_text(
+                json.dumps({"type": "FeatureCollection", "features": features}),
+                encoding="utf-8",
+            )
+            summary.path = str(path)
+            logger.info(
+                "Wrote %d vector feature(s) to %s (%d roads, %d buildings)",
+                len(features),
+                path,
+                summary.roads,
+                summary.buildings,
+            )
+        except OSError as exc:
+            logger.warning("Could not write vector data: %s", exc)
+
+        return summary
 
     # ------------------------------------------------------------------
     # Derived layers

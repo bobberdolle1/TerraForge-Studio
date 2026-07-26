@@ -14,6 +14,7 @@ from .base import (
 from .earth_engine import EarthEngineSource
 from .opentopography import OpenTopographySource
 from .osm_source import OSMSource
+from .overpass import OverpassSource
 from .sentinel_hub import SentinelHubSource
 from .srtm import SRTMSource
 
@@ -28,6 +29,7 @@ __all__ = [
     "AzureMapsSource",
     "EarthEngineSource",
     "OSMSource",
+    "OverpassSource",
     "SRTMSource",
 ]
 

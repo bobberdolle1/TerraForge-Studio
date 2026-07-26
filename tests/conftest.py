@@ -34,6 +34,7 @@ os.environ.update(
         # Keep the suite hermetic: no outbound tile or Overpass requests.
         "SRTM_ENABLED": "false",
         "OSM_ENABLED": "false",
+        "OVERPASS_ENABLED": "false",
         "ALLOW_SYNTHETIC_FALLBACK": "true",
         "ENVIRONMENT": "development",
     }

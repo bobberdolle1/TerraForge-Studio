@@ -262,6 +262,21 @@ class ExportResult(BaseModel):
     error: Optional[str] = None
 
 
+class VectorSummary(BaseModel):
+    """Vector features retrieved for a generation and where they were written."""
+
+    source: str = Field(..., description="Identifier of the source that supplied the features")
+    roads: int = 0
+    buildings: int = 0
+    landuse: int = 0
+    #: GeoJSON file inside the output directory, included in the zip download.
+    path: Optional[str] = None
+
+    @property
+    def total(self) -> int:
+        return self.roads + self.buildings + self.landuse
+
+
 class GenerationResult(BaseModel):
     """Summary of a completed generation, returned to API clients."""
 
@@ -270,6 +285,7 @@ class GenerationResult(BaseModel):
     area_km2: float
     bbox: BoundingBox
     elevation: ElevationProvenance
+    vectors: Optional[VectorSummary] = None
     exports: List[ExportResult] = Field(default_factory=list)
     output_directory: str
     thumbnail_path: Optional[str] = None
