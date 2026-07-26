@@ -10,6 +10,9 @@ import { historyStorage } from '../utils/history-storage';
 import type { GenerationHistoryItem } from '../types/history';
 import { notify } from '../utils/toast';
 
+/** Status values the history list can be filtered by. */
+type HistoryFilter = 'all' | 'completed' | 'failed';
+
 interface GenerationHistoryProps {
   onClose: () => void;
   onRepeat?: (item: GenerationHistoryItem) => void;
@@ -18,7 +21,7 @@ interface GenerationHistoryProps {
 export default function GenerationHistory({ onClose, onRepeat }: GenerationHistoryProps) {
   const [history, setHistory] = useState<GenerationHistoryItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'completed' | 'failed'>('all');
+  const [filterStatus, setFilterStatus] = useState<HistoryFilter>('all');
 
   useEffect(() => {
     loadHistory();
@@ -137,7 +140,7 @@ export default function GenerationHistory({ onClose, onRepeat }: GenerationHisto
             </div>
             <select
               value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value as any)}
+              onChange={(e) => setFilterStatus(e.target.value as HistoryFilter)}
               className="px-4 py-2 rounded-lg bg-white bg-opacity-20 border border-white border-opacity-30 text-white focus:outline-none focus:ring-2 focus:ring-white"
             >
               <option value="all" className="text-gray-900">All</option>

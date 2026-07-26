@@ -29,7 +29,13 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useIsMobile } from './hooks/useMediaQuery';
 import { historyStorage } from './utils/history-storage';
-import type { BoundingBox, ExportFormat, ElevationSource, GenerationStatus } from './types';
+import type {
+  BoundingBox,
+  ExportFormat,
+  ElevationSource,
+  GenerationStatus,
+  HealthStatus,
+} from './types';
 import type { GenerationHistoryItem } from './types/history';
 
 function App() {
@@ -46,7 +52,7 @@ function App() {
   });
   const [activeTab, setActiveTab] = useState<'2d' | '3d'>('2d');
   const [currentTask, setCurrentTask] = useState<GenerationStatus | null>(null);
-  const [appHealth, setAppHealth] = useState<any>(null);
+  const [appHealth, setAppHealth] = useState<HealthStatus | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -65,28 +71,31 @@ function App() {
 
   // WebSocket connection for live updates
   useWebSocket(wsUrl, {
-    onMessage: (data) => {
-      if (data.type === 'status_update') {
-        // The server sends the full GenerationStatus payload; `type` is the
-        // only envelope field and is dropped here.
-        const { type: _type, ...status } = data;
-        setCurrentTask({ warnings: [], ...status } as GenerationStatus);
+    onMessage: (message) => {
+      if (message.type !== 'status_update') return;
 
-        // Handle completion/failure
-        if (data.status === 'completed') {
-          notify.success('Terrain generation completed!');
-          saveToHistory(data, 'completed', data.thumbnail_base64);
-        } else if (data.status === 'failed') {
-          notify.error('Terrain generation failed');
-          saveToHistory(data, 'failed');
-        }
+      // The server sends the full GenerationStatus payload alongside `type`,
+      // which is envelope-only and dropped here. `warnings` is defaulted so a
+      // server predating that field still yields a well-formed task.
+      const { type: _type, ...rest } = message;
+      const incoming = rest as unknown as GenerationStatus;
+      const task: GenerationStatus = { ...incoming, warnings: incoming.warnings ?? [] };
+
+      setCurrentTask(task);
+
+      if (task.status === 'completed') {
+        notify.success('Terrain generation completed!');
+        saveToHistory(task, 'completed', task.result?.thumbnail_base64 ?? undefined);
+      } else if (task.status === 'failed') {
+        notify.error('Terrain generation failed');
+        saveToHistory(task, 'failed');
       }
     },
     onOpen: () => {
       notify.info('Connected to live updates');
     },
     onClose: () => {
-      console.log('WebSocket connection closed');
+      // Reconnection is handled by the hook; nothing to do here.
     },
     reconnect: true,
   });
@@ -110,12 +119,15 @@ function App() {
       setAppHealth(health);
       setShowWizard(firstRun.show_wizard);
       setAiEnabled(settings?.ai?.enabled || false);
-      console.log('AI enabled:', settings?.ai?.enabled);
     }).catch(console.error);
   }, []);
 
   // Helper function to save generation to history
-  const saveToHistory = (data: any, status: 'completed' | 'failed', thumbnail?: string) => {
+  const saveToHistory = (
+    data: GenerationStatus,
+    status: 'completed' | 'failed',
+    thumbnail?: string,
+  ) => {
     if (!selectedBbox || !currentTask) return;
 
     const duration = Date.now() - generationStartTime.current;
@@ -133,7 +145,7 @@ function App() {
         enableWeightmaps: true,
       },
       status,
-      downloadUrl: data.download_url,
+      downloadUrl: data.download_url ?? undefined,
       thumbnail: thumbnail,
       stats: {
         duration,

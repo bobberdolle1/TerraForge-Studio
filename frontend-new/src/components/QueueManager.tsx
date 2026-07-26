@@ -12,7 +12,7 @@ interface BatchJob {
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
   progress: number;
   error?: string;
-  result?: any;
+  result?: Record<string, unknown>;
   created_at: string;
   started_at?: string;
   completed_at?: string;

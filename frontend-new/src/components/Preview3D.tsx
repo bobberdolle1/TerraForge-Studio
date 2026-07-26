@@ -3,6 +3,9 @@
  * Full terrain visualization with satellite imagery
  */
 
+// Type-only import: Cesium itself is loaded lazily at runtime, so this adds
+// no weight to the bundle while still giving the viewer a real type.
+import type * as Cesium from 'cesium';
 import { useEffect, useRef, useState } from 'react';
 import { Camera, Home, ZoomIn, ZoomOut, RotateCcw, Download } from 'lucide-react';
 import type { BoundingBox } from '@/types';
@@ -18,7 +21,7 @@ interface Preview3DProps {
 
 const Preview3D: React.FC<Preview3DProps> = ({ bbox, terrainData: _terrainData }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const viewerRef = useRef<any>(null);
+  const viewerRef = useRef<Cesium.Viewer | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [cameraMode, setCameraMode] = useState<'free' | 'orbit'>('free');
 
@@ -77,6 +80,10 @@ const Preview3D: React.FC<Preview3DProps> = ({ bbox, terrainData: _terrainData }
         viewerRef.current.destroy();
       }
     };
+    // Runs once: bbox is used only for the initial camera position. Adding it
+    // here would destroy and rebuild the Cesium viewer on every selection
+    // change; the effect below flies the existing camera instead.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -88,25 +95,31 @@ const Preview3D: React.FC<Preview3DProps> = ({ bbox, terrainData: _terrainData }
     }
   }, [bbox, isInitialized]);
 
-  const flyToBoundingBox = (viewer: any, box: BoundingBox, Cesium: any) => {
+  const flyToBoundingBox = (
+    viewer: Cesium.Viewer | null,
+    box: BoundingBox,
+    CesiumModule: typeof Cesium,
+  ) => {
     const center = {
       longitude: (box.east + box.west) / 2,
       latitude: (box.north + box.south) / 2,
     };
+
+    if (!viewer) return;
 
     const latDiff = box.north - box.south;
     const lonDiff = box.east - box.west;
     const range = Math.max(latDiff, lonDiff) * 111320; // Approx meters per degree
 
     viewer.camera.flyTo({
-      destination: Cesium.Cartesian3.fromDegrees(
+      destination: CesiumModule.Cartesian3.fromDegrees(
         center.longitude,
         center.latitude,
         range * 2
       ),
       orientation: {
-        heading: Cesium.Math.toRadians(0),
-        pitch: Cesium.Math.toRadians(-45),
+        heading: CesiumModule.Math.toRadians(0),
+        pitch: CesiumModule.Math.toRadians(-45),
         roll: 0,
       },
       duration: 2,

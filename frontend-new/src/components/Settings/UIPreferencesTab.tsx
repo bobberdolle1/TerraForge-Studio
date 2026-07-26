@@ -1,7 +1,8 @@
+import type { Theme } from '../../hooks/useTheme';
 import { useState } from 'react';
 import { Loader } from 'lucide-react';
 import type { UIPreferences } from '@/types/settings';
-import { useTheme } from '@/contexts/ThemeContext';
+import { useTheme } from '@/hooks/useTheme';
 import { useTranslation } from 'react-i18next';
 
 interface UIPreferencesTabProps {
@@ -56,7 +57,7 @@ const UIPreferencesTab: React.FC<UIPreferencesTabProps> = ({ ui, onSave, saving 
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Theme</label>
           <select
             value={formData.theme}
-            onChange={(e) => setFormData({ ...formData, theme: e.target.value as any })}
+            onChange={(e) => setFormData({ ...formData, theme: e.target.value as Theme })}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
           >
             <option value="light">Light</option>
