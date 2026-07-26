@@ -1,47 +1,107 @@
+# Kubernetes manifests for TerraForge Studio.
+#
+# One deployment: the application image serves both the API and the built
+# frontend, so there is no separate frontend pod. Earlier revisions declared
+# one using terraforge/frontend:latest, an image this repository has no
+# Dockerfile for, and injected DATABASE_URL, REDIS_URL and SECRET_KEY from a
+# terraforge-secrets Secret - three variables nothing in the codebase reads,
+# and a missing secretKeyRef blocks the pod from starting at all.
+#
+#   kubectl apply -f k8s/deployment.yml
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: terraforge-prod
+
+---
+# Generated maps, the result cache, and user accounts plus the credential
+# encryption key. Losing the last of these means re-entering every API key.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: terraforge-data
+  namespace: terraforge-prod
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: terraforge-backend
+  name: terraforge
   namespace: terraforge-prod
   labels:
     app: terraforge
-    component: backend
 spec:
-  replicas: 3
+  # Task state lives in the process that started the generation, so a second
+  # replica would answer /api/status/{task_id} with a 404 for tasks belonging
+  # to the first. Scaling out needs shared task state, which does not exist
+  # yet; scale up instead - generation is CPU and memory bound.
+  replicas: 1
+  strategy:
+    type: Recreate        # ReadWriteOnce cannot be mounted by two pods at once
   selector:
     matchLabels:
       app: terraforge
-      component: backend
   template:
     metadata:
       labels:
         app: terraforge
-        component: backend
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
       containers:
-      - name: backend
-        image: terraforge/backend:latest
+      - name: terraforge
+        image: terraforge/studio:latest
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8000
           name: http
         env:
-        - name: APP_ENV
+        - name: ENVIRONMENT
           value: "production"
-        - name: DATABASE_URL
+        - name: LOG_FORMAT
+          value: "json"
+        - name: OUTPUT_DIR
+          value: "/data/output"
+        - name: CACHE_DIR
+          value: "/data/cache"
+        - name: TEMP_DIR
+          value: "/data/temp"
+        - name: AUTH_STORAGE_FILE
+          value: "/data/accounts/users.json"
+        - name: SETTINGS_STORAGE_FILE
+          value: "/data/accounts/settings.json"
+        - name: SECRET_KEY_FILE
+          value: "/data/accounts/.secret_key"
+        # Behind an ingress that overwrites X-Forwarded-For, so per-client
+        # rate limiting sees the real caller rather than the proxy.
+        - name: RATE_LIMIT_TRUST_FORWARDED_FOR
+          value: "true"
+        # Optional providers. Create the Secret first, or drop this block:
+        # SRTM elevation and Overpass vector data need no credentials.
+        - name: OPENTOPOGRAPHY_API_KEY
           valueFrom:
             secretKeyRef:
-              name: terraforge-secrets
-              key: database-url
-        - name: REDIS_URL
+              name: terraforge-credentials
+              key: opentopography-api-key
+              optional: true
+        - name: AZURE_MAPS_SUBSCRIPTION_KEY
           valueFrom:
             secretKeyRef:
-              name: terraforge-secrets
-              key: redis-url
-        - name: SECRET_KEY
-          valueFrom:
-            secretKeyRef:
-              name: terraforge-secrets
-              key: secret-key
+              name: terraforge-credentials
+              key: azure-maps-subscription-key
+              optional: true
+        volumeMounts:
+        - name: data
+          mountPath: /data
         resources:
           requests:
             memory: "512Mi"
@@ -55,109 +115,43 @@ spec:
             port: 8000
           initialDelaySeconds: 30
           periodSeconds: 10
+        # /health/ready checks that the data directory is writable and that an
+        # elevation source answers, so it needs egress to reach the tile
+        # service. Without egress the pod stays out of the Service, which is
+        # the intended behaviour: it could not serve a generation anyway.
         readinessProbe:
           httpGet:
             path: /health/ready
             port: 8000
           initialDelaySeconds: 10
           periodSeconds: 5
+        # Generation is long-running; give the first readiness pass room
+        # before the pod is considered failed.
+        startupProbe:
+          httpGet:
+            path: /health/live
+            port: 8000
+          failureThreshold: 30
+          periodSeconds: 5
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: terraforge-data
 
 ---
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: v1
+kind: Service
 metadata:
-  name: terraforge-frontend
+  name: terraforge
   namespace: terraforge-prod
   labels:
     app: terraforge
-    component: frontend
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: terraforge
-      component: frontend
-  template:
-    metadata:
-      labels:
-        app: terraforge
-        component: frontend
-    spec:
-      containers:
-      - name: frontend
-        image: terraforge/frontend:latest
-        ports:
-        - containerPort: 80
-          name: http
-        resources:
-          requests:
-            memory: "256Mi"
-            cpu: "250m"
-          limits:
-            memory: "512Mi"
-            cpu: "500m"
-        livenessProbe:
-          httpGet:
-            path: /
-            port: 80
-          initialDelaySeconds: 10
-          periodSeconds: 10
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: terraforge-backend
-  namespace: terraforge-prod
 spec:
   selector:
     app: terraforge
-    component: backend
   ports:
-  - protocol: TCP
-    port: 8000
+  - name: http
+    protocol: TCP
+    port: 80
     targetPort: 8000
   type: ClusterIP
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: terraforge-frontend
-  namespace: terraforge-prod
-spec:
-  selector:
-    app: terraforge
-    component: frontend
-  ports:
-  - protocol: TCP
-    port: 80
-    targetPort: 80
-  type: LoadBalancer
-
----
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: terraforge-backend-hpa
-  namespace: terraforge-prod
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: terraforge-backend
-  minReplicas: 3
-  maxReplicas: 10
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 70
-  - type: Resource
-    resource:
-      name: memory
-      target:
-        type: Utilization
-        averageUtilization: 80

@@ -1,131 +1,78 @@
-version: '3.8'
+# Production stack for TerraForge Studio.
+#
+# One application container serving both the API and the built frontend, an
+# nginx reverse proxy terminating TLS, and an optional monitoring pair.
+#
+# There is no database, cache server or task broker here because the
+# application uses none: generation state is in-process, results are cached on
+# disk under CACHE_DIR, and the batch queue is in-memory. Earlier revisions of
+# this file ran PostgreSQL, Redis and two Celery services against
+# `realworldmapgen.tasks`, a module that does not exist.
+#
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Credentials come from a .env file next to this one - see .env.example.
 
 services:
-  # Frontend
-  frontend:
-    build:
-      context: ./frontend-new
-      dockerfile: Dockerfile
-    ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      - NODE_ENV=production
-      - VITE_API_URL=https://api.terraforge.studio
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./ssl:/etc/nginx/ssl:ro
-    depends_on:
-      - backend
-    restart: always
-    networks:
-      - terraforge-network
-
-  # Backend API
-  backend:
+  terraforge:
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
+    container_name: terraforge-studio
+    env_file:
+      - .env
     environment:
-      - APP_ENV=production
-      - DATABASE_URL=postgresql://terraforge:${DB_PASSWORD}@db:5432/terraforge
-      - REDIS_URL=redis://redis:6379/0
-      - SECRET_KEY=${SECRET_KEY}
-      - SENTRY_DSN=${SENTRY_DSN}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-    depends_on:
-      - db
-      - redis
+      ENVIRONMENT: production
+      LOG_LEVEL: INFO
+      LOG_FORMAT: json
+      OUTPUT_DIR: /app/output
+      CACHE_DIR: /app/cache
+      TEMP_DIR: /app/temp
+      # Accounts and the credential encryption key. On a persistent volume so
+      # that a rebuild does not log everyone out or lose stored API keys.
+      AUTH_STORAGE_FILE: /app/data/users.json
+      SETTINGS_STORAGE_FILE: /app/data/settings.json
+      SECRET_KEY_FILE: /app/data/.secret_key
+      # Enable behind the proxy below, which overwrites X-Forwarded-For.
+      RATE_LIMIT_TRUST_FORWARDED_FOR: "true"
+    volumes:
+      - terraforge_output:/app/output
+      - terraforge_cache:/app/cache
+      - terraforge_data:/app/data
+    expose:
+      - "8000"
     restart: always
     networks:
       - terraforge-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health/ready"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 20s
 
-  # PostgreSQL Database
-  db:
-    image: postgres:15-alpine
-    environment:
-      - POSTGRES_DB=terraforge
-      - POSTGRES_USER=terraforge
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
-      - PGDATA=/var/lib/postgresql/data/pgdata
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+  nginx:
+    image: nginx:alpine
+    container_name: terraforge-nginx
     ports:
-      - "5432:5432"
-    restart: always
-    networks:
-      - terraforge-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U terraforge"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # Redis Cache
-  redis:
-    image: redis:7-alpine
-    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+      - "80:80"
+      - "443:443"
     volumes:
-      - redis_data:/data
-    ports:
-      - "6379:6379"
-    restart: always
-    networks:
-      - terraforge-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # Celery Worker
-  celery-worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    command: celery -A realworldmapgen.tasks worker --loglevel=info --concurrency=4
-    environment:
-      - APP_ENV=production
-      - DATABASE_URL=postgresql://terraforge:${DB_PASSWORD}@db:5432/terraforge
-      - REDIS_URL=redis://redis:6379/0
+      - ./nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
     depends_on:
-      - db
-      - redis
+      - terraforge
     restart: always
     networks:
       - terraforge-network
 
-  # Celery Beat (Scheduler)
-  celery-beat:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    command: celery -A realworldmapgen.tasks beat --loglevel=info
-    environment:
-      - APP_ENV=production
-      - DATABASE_URL=postgresql://terraforge:${DB_PASSWORD}@db:5432/terraforge
-      - REDIS_URL=redis://redis:6379/0
-    depends_on:
-      - db
-      - redis
-    restart: always
-    networks:
-      - terraforge-network
-
-  # Prometheus Monitoring
+  # Optional: scrapes /metrics, which the application really exposes.
+  # Start with `--profile monitoring`.
   prometheus:
     image: prom/prometheus:latest
+    profiles: ["monitoring"]
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -136,12 +83,11 @@ services:
     networks:
       - terraforge-network
 
-  # Grafana Dashboard
   grafana:
     image: grafana/grafana:latest
+    profiles: ["monitoring"]
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
-      - GF_INSTALL_PLUGINS=redis-datasource
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
     volumes:
       - grafana_data:/var/lib/grafana
     ports:
@@ -153,9 +99,11 @@ services:
       - terraforge-network
 
 volumes:
-  postgres_data:
+  terraforge_output:
     driver: local
-  redis_data:
+  terraforge_cache:
+    driver: local
+  terraforge_data:
     driver: local
   prometheus_data:
     driver: local
