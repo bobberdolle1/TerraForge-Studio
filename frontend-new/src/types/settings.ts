@@ -137,8 +137,16 @@ export interface MaskedCredentials {
 
 export interface ConnectionTestResult {
   source: string;
+  /** True only when a real request reached the provider and was accepted. */
   success: boolean;
-  error?: string;
+  /** Credentials (if the source needs any) are present. */
+  configured: boolean;
+  /**
+   * Whether the probe round trip completed. Null when no request was made,
+   * e.g. the source is disabled or unconfigured.
+   */
+  reachable: boolean | null;
+  error?: string | null;
   message: string;
 }
 

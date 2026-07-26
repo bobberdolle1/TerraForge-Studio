@@ -3,9 +3,46 @@
  */
 
 import { useState } from 'react';
-import { Check, X, Loader, Eye, EyeOff } from 'lucide-react';
+import { AlertCircle, Check, X, Loader, Eye, EyeOff } from 'lucide-react';
 import { settingsApi } from '@/services/settings-api';
 import type { DataSourceCredentials } from '@/types/settings';
+
+interface TestResult {
+  success: boolean;
+  message: string;
+  /** Null when no request was attempted (source disabled or unconfigured). */
+  reachable: boolean | null;
+}
+
+/**
+ * Outcome of a connectivity probe.
+ *
+ * Three states, not two: a source that was never contacted is neither a pass
+ * nor a failure, and showing it in red would misreport it.
+ */
+const ConnectionStatus: React.FC<{ result?: TestResult }> = ({ result }) => {
+  if (!result) return null;
+
+  if (result.reachable === null) {
+    return (
+      <div className="flex items-center space-x-2 text-sm text-amber-700 dark:text-amber-400">
+        <AlertCircle className="w-4 h-4" />
+        <span>{result.message}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`flex items-center space-x-2 text-sm ${
+        result.success ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'
+      }`}
+    >
+      {result.success ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
+      <span>{result.message}</span>
+    </div>
+  );
+};
 
 interface DataSourcesTabProps {
   credentials: DataSourceCredentials;
@@ -45,7 +82,7 @@ const DataSourcesTab: React.FC<DataSourcesTabProps> = ({ credentials, onSave, sa
     google_earth_engine: { ...defaultCredentials.google_earth_engine, ...credentials?.google_earth_engine },
   });
   const [testing, setTesting] = useState<Record<string, boolean>>({});
-  const [testResults, setTestResults] = useState<Record<string, { success: boolean; message: string }>>({});
+  const [testResults, setTestResults] = useState<Record<string, TestResult>>({});
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
 
   const handleTest = async (source: string) => {
@@ -54,12 +91,16 @@ const DataSourcesTab: React.FC<DataSourcesTabProps> = ({ credentials, onSave, sa
       const result = await settingsApi.testConnection(source);
       setTestResults(prev => ({
         ...prev,
-        [source]: { success: result.success, message: result.message }
+        [source]: {
+          success: result.success,
+          message: result.message,
+          reachable: result.reachable,
+        }
       }));
-    } catch (error) {
+    } catch {
       setTestResults(prev => ({
         ...prev,
-        [source]: { success: false, message: 'Connection failed' }
+        [source]: { success: false, message: 'Connection failed', reachable: false }
       }));
     } finally {
       setTesting(prev => ({ ...prev, [source]: false }));
@@ -165,14 +206,7 @@ const DataSourcesTab: React.FC<DataSourcesTabProps> = ({ credentials, onSave, sa
               <span>Test Connection</span>
             </button>
 
-            {testResults['sentinelhub'] && (
-              <div className={`flex items-center space-x-2 text-sm ${
-                testResults['sentinelhub'].success ? 'text-green-700' : 'text-red-700'
-              }`}>
-                {testResults['sentinelhub'].success ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
-                <span>{testResults['sentinelhub'].message}</span>
-              </div>
-            )}
+            <ConnectionStatus result={testResults['sentinelhub']} />
           </div>
         )}
       </div>
@@ -241,14 +275,7 @@ const DataSourcesTab: React.FC<DataSourcesTabProps> = ({ credentials, onSave, sa
               <span>Test Connection</span>
             </button>
 
-            {testResults['opentopography'] && (
-              <div className={`flex items-center space-x-2 text-sm ${
-                testResults['opentopography'].success ? 'text-green-700' : 'text-red-700'
-              }`}>
-                {testResults['opentopography'].success ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
-                <span>{testResults['opentopography'].message}</span>
-              </div>
-            )}
+            <ConnectionStatus result={testResults['opentopography']} />
           </div>
         )}
       </div>
@@ -314,14 +341,7 @@ const DataSourcesTab: React.FC<DataSourcesTabProps> = ({ credentials, onSave, sa
               <span>Test Connection</span>
             </button>
 
-            {testResults['azure_maps'] && (
-              <div className={`flex items-center space-x-2 text-sm ${
-                testResults['azure_maps'].success ? 'text-green-700' : 'text-red-700'
-              }`}>
-                {testResults['azure_maps'].success ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
-                <span>{testResults['azure_maps'].message}</span>
-              </div>
-            )}
+            <ConnectionStatus result={testResults['azure_maps']} />
           </div>
         )}
       </div>
@@ -406,14 +426,7 @@ const DataSourcesTab: React.FC<DataSourcesTabProps> = ({ credentials, onSave, sa
               <span>Test Connection</span>
             </button>
 
-            {testResults['google_earth_engine'] && (
-              <div className={`flex items-center space-x-2 text-sm ${
-                testResults['google_earth_engine'].success ? 'text-green-700' : 'text-red-700'
-              }`}>
-                {testResults['google_earth_engine'].success ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
-                <span>{testResults['google_earth_engine'].message}</span>
-              </div>
-            )}
+            <ConnectionStatus result={testResults['google_earth_engine']} />
           </div>
         )}
       </div>

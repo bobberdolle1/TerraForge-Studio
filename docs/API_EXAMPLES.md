@@ -17,6 +17,7 @@ Base URL in these examples: `http://localhost:8000`
 - [Downloads](#downloads)
 - [Batch processing](#batch-processing)
 - [Vector data (roads and buildings)](#vector-data-roads-and-buildings)
+- [Testing a data source](#testing-a-data-source)
 - [Webhooks](#webhooks)
 - [Rate limiting](#rate-limiting)
 
@@ -406,6 +407,40 @@ happens, or when every mirror fails, the task completes with a warning and no
 
 Footpaths, cycleways, steps and private-access ways are excluded from road
 extraction.
+
+---
+
+## Testing a data source
+
+```bash
+curl -X POST http://localhost:8000/api/settings/test-connection/srtm
+```
+
+```json
+{
+  "source": "srtm",
+  "success": true,
+  "configured": true,
+  "reachable": true,
+  "message": "Connection successful",
+  "error": null
+}
+```
+
+The probe performs a real request against the provider — a terrain tile for
+`srtm`, a trivial query for `osm`, a token exchange for `sentinelhub`, an
+authenticated call for `opentopography` and `azure_maps`. Three fields matter,
+and they are deliberately distinct:
+
+| Field | Meaning |
+|---|---|
+| `configured` | Credentials are present (always true for key-free sources) |
+| `reachable` | The request completed and was accepted; `null` when none was attempted |
+| `success` | `reachable === true` — nothing else counts |
+
+A rejected key returns `success: false` with an explicit reason rather than a
+green result. A disabled or unconfigured source reports `reachable: null`,
+which is neither a pass nor a failure and should not be shown as an error.
 
 ---
 
