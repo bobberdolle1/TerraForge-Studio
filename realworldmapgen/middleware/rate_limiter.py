@@ -1,125 +1,208 @@
 """
-Rate Limiter Middleware
-Protects API from abuse with configurable rate limits
+Rate limiting middleware.
+
+Enforces per-minute, per-hour and per-day request budgets using a sliding
+window over request timestamps.
 """
 
-from collections import defaultdict
-from datetime import datetime, timedelta
-from typing import Dict, Optional
+from __future__ import annotations
+
+import logging
+import threading
+import time
+from collections import defaultdict, deque
+from typing import Deque, Dict, Iterable, Optional, Tuple
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
+
+logger = logging.getLogger(__name__)
+
+#: Windows checked on every request, longest last.
+_WINDOWS: Tuple[Tuple[str, int], ...] = (
+    ("minute", 60),
+    ("hour", 3600),
+    ("day", 86400),
+)
 
 
 class RateLimitConfig:
-    """Rate limit configuration"""
+    """Rate limit configuration."""
 
     def __init__(
         self,
         requests_per_minute: int = 60,
         requests_per_hour: int = 1000,
-        requests_per_day: int = 10000
+        requests_per_day: int = 10000,
+        trust_forwarded_for: bool = False,
+        exempt_paths: Optional[Iterable[str]] = None,
     ):
         self.requests_per_minute = requests_per_minute
         self.requests_per_hour = requests_per_hour
         self.requests_per_day = requests_per_day
+        #: Only enable behind a proxy that overwrites X-Forwarded-For. When a
+        #: client can set the header itself, trusting it makes the limit
+        #: trivially bypassable by rotating the value.
+        self.trust_forwarded_for = trust_forwarded_for
+        #: Prefixes that skip the limit entirely. Orchestrator probes and
+        #: metrics scrapes poll frequently and must never be throttled.
+        self.exempt_paths = tuple(
+            exempt_paths if exempt_paths is not None else ("/health", "/metrics")
+        )
+
+    def limit_for(self, window: str) -> int:
+        return {
+            "minute": self.requests_per_minute,
+            "hour": self.requests_per_hour,
+            "day": self.requests_per_day,
+        }[window]
 
 
 class RateLimiter:
-    """Rate limiter with sliding window"""
+    """
+    Sliding-window rate limiter.
 
-    def __init__(self, config: RateLimitConfig = None):
+    Timestamps are kept once per client and counted against each window
+    independently. An earlier implementation truncated the shared history to
+    the shortest window before checking the longer ones, which made the hourly
+    and daily budgets unreachable.
+    """
+
+    #: Clients idle for longer than the longest window are dropped, so the
+    #: table cannot grow without bound on a long-running server.
+    IDLE_EVICTION_SECONDS = 86400
+    #: How often eviction runs, in requests handled.
+    EVICTION_INTERVAL = 1000
+
+    def __init__(self, config: Optional[RateLimitConfig] = None):
         self.config = config or RateLimitConfig()
-        self.requests: Dict[str, list] = defaultdict(list)
+        self._requests: Dict[str, Deque[float]] = defaultdict(deque)
+        self._lock = threading.Lock()
+        self._since_eviction = 0
 
-    def _get_client_id(self, request: Request) -> str:
-        """Get unique client identifier"""
-        # Try to get user ID from auth
-        user_id = getattr(request.state, 'user_id', None)
+    # ------------------------------------------------------------------
+    # Client identity
+    # ------------------------------------------------------------------
+    def client_id(self, request: Request) -> str:
+        """Identify the caller, preferring an authenticated user id."""
+        user_id = getattr(request.state, "user_id", None)
         if user_id:
             return f"user:{user_id}"
 
-        # Fallback to IP address
-        forwarded = request.headers.get('X-Forwarded-For')
-        if forwarded:
-            return f"ip:{forwarded.split(',')[0].strip()}"
+        if self.config.trust_forwarded_for:
+            forwarded = request.headers.get("X-Forwarded-For")
+            if forwarded:
+                return f"ip:{forwarded.split(',')[0].strip()}"
 
-        client_host = request.client.host if request.client else 'unknown'
-        return f"ip:{client_host}"
+        host = request.client.host if request.client else "unknown"
+        return f"ip:{host}"
 
-    def _cleanup_old_requests(self, client_id: str, window: timedelta):
-        """Remove requests outside the time window"""
-        cutoff = datetime.now() - window
-        self.requests[client_id] = [
-            ts for ts in self.requests[client_id] if ts > cutoff
-        ]
+    # ------------------------------------------------------------------
+    # Accounting
+    # ------------------------------------------------------------------
+    def is_exempt(self, path: str) -> bool:
+        return path.startswith(self.config.exempt_paths)
 
-    def check_rate_limit(self, request: Request) -> Optional[JSONResponse]:
-        """Check if request should be rate limited"""
-        client_id = self._get_client_id(request)
-        now = datetime.now()
+    def check(self, client: str, now: Optional[float] = None) -> Tuple[Optional[str], int]:
+        """
+        Record a request and report whether it exceeds a budget.
 
-        # Add current request
-        self.requests[client_id].append(now)
+        Returns ``(exceeded_window, remaining_this_minute)``; the window is
+        None when the request is allowed.
+        """
+        now = time.monotonic() if now is None else now
 
-        # Check minute limit
-        self._cleanup_old_requests(client_id, timedelta(minutes=1))
-        if len(self.requests[client_id]) > self.config.requests_per_minute:
-            return self._rate_limit_response("minute", self.config.requests_per_minute)
+        with self._lock:
+            history = self._requests[client]
+            history.append(now)
 
-        # Check hour limit
-        self._cleanup_old_requests(client_id, timedelta(hours=1))
-        if len(self.requests[client_id]) > self.config.requests_per_hour:
-            return self._rate_limit_response("hour", self.config.requests_per_hour)
+            # Drop anything older than the longest window we track.
+            longest = _WINDOWS[-1][1]
+            while history and history[0] <= now - longest:
+                history.popleft()
 
-        # Check day limit
-        self._cleanup_old_requests(client_id, timedelta(days=1))
-        if len(self.requests[client_id]) > self.config.requests_per_day:
-            return self._rate_limit_response("day", self.config.requests_per_day)
+            exceeded: Optional[str] = None
+            minute_count = 0
+            for name, span in _WINDOWS:
+                cutoff = now - span
+                # History is chronological, so a reverse scan stops early.
+                count = 0
+                for timestamp in reversed(history):
+                    if timestamp <= cutoff:
+                        break
+                    count += 1
 
-        return None
+                if name == "minute":
+                    minute_count = count
+                if exceeded is None and count > self.config.limit_for(name):
+                    exceeded = name
 
-    def _rate_limit_response(self, window: str, limit: int) -> JSONResponse:
-        """Return rate limit exceeded response"""
-        return JSONResponse(
-            status_code=429,
-            content={
-                "error": "Rate limit exceeded",
-                "message": f"Too many requests. Limit: {limit} per {window}",
-                "retry_after": self._get_retry_after(window)
-            }
-        )
+            self._since_eviction += 1
+            if self._since_eviction >= self.EVICTION_INTERVAL:
+                self._evict_idle(now)
+                self._since_eviction = 0
 
-    def _get_retry_after(self, window: str) -> int:
-        """Get retry after seconds"""
-        if window == "minute":
-            return 60
-        elif window == "hour":
-            return 3600
-        else:
-            return 86400
+        remaining = max(0, self.config.requests_per_minute - minute_count)
+        return exceeded, remaining
+
+    def _evict_idle(self, now: float) -> None:
+        """Drop clients with no activity inside the longest window."""
+        cutoff = now - self.IDLE_EVICTION_SECONDS
+        stale = [client for client, hist in self._requests.items() if not hist or hist[-1] <= cutoff]
+        for client in stale:
+            del self._requests[client]
+        if stale:
+            logger.debug("Evicted %d idle rate-limit entries", len(stale))
+
+    def reset(self) -> None:
+        """Forget all recorded history (used by tests)."""
+        with self._lock:
+            self._requests.clear()
+            self._since_eviction = 0
+
+    @staticmethod
+    def retry_after(window: str) -> int:
+        return {"minute": 60, "hour": 3600, "day": 86400}[window]
 
 
-# Global rate limiter
-rate_limiter = RateLimiter()
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    """Applies a :class:`RateLimiter` to every request."""
 
+    def __init__(self, app, limiter: Optional[RateLimiter] = None):
+        super().__init__(app)
+        self.limiter = limiter or RateLimiter()
 
-async def rate_limit_middleware(request: Request, call_next):
-    """FastAPI middleware for rate limiting"""
+    async def dispatch(self, request: Request, call_next):
+        if self.limiter.is_exempt(request.url.path):
+            return await call_next(request)
 
-    # Check rate limit
-    response = rate_limiter.check_rate_limit(request)
-    if response:
+        client = self.limiter.client_id(request)
+        exceeded, remaining = self.limiter.check(client)
+
+        if exceeded:
+            limit = self.limiter.config.limit_for(exceeded)
+            retry_after = self.limiter.retry_after(exceeded)
+            logger.info("Rate limit hit by %s (%s window)", client, exceeded)
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "error": "Rate limit exceeded",
+                    "message": f"Too many requests. Limit: {limit} per {exceeded}",
+                    "retry_after": retry_after,
+                },
+                headers={
+                    "Retry-After": str(retry_after),
+                    "X-RateLimit-Limit": str(self.limiter.config.requests_per_minute),
+                    "X-RateLimit-Remaining": "0",
+                },
+            )
+
+        response = await call_next(request)
+        response.headers["X-RateLimit-Limit"] = str(self.limiter.config.requests_per_minute)
+        response.headers["X-RateLimit-Remaining"] = str(remaining)
         return response
 
-    # Continue with request
-    response = await call_next(request)
 
-    # Add rate limit headers
-    client_id = rate_limiter._get_client_id(request)
-    response.headers["X-RateLimit-Limit"] = str(rate_limiter.config.requests_per_minute)
-    response.headers["X-RateLimit-Remaining"] = str(
-        rate_limiter.config.requests_per_minute - len(rate_limiter.requests[client_id])
-    )
-
-    return response
+#: Shared limiter instance, configured when the app is created.
+rate_limiter = RateLimiter()

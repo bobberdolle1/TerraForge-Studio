@@ -216,8 +216,15 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------
     api_key_enabled: bool = False
     api_keys: StrList = []
+
     rate_limit_enabled: bool = True
     rate_limit_per_minute: int = 60
+    rate_limit_per_hour: int = 1000
+    rate_limit_per_day: int = 10000
+    #: Only enable behind a reverse proxy that overwrites X-Forwarded-For.
+    #: Trusting it when clients can set it themselves makes the limit
+    #: bypassable by rotating the header value.
+    rate_limit_trust_forwarded_for: bool = False
 
     # ------------------------------------------------------------------
     # Validators

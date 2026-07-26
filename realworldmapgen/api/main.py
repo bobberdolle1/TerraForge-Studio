@@ -18,6 +18,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from ..config import ensure_directories, settings
 from ..core.generator_provider import get_generator
+from ..middleware.rate_limiter import RateLimitConfig, RateLimiter, RateLimitMiddleware
 from ..models import GenerationStatus, MapGenerationRequest, TaskStatus
 from ..packaging import create_map_archive
 from .ai_routes import router as ai_router
@@ -29,6 +30,7 @@ from .health import router as health_router
 from .plugin_routes import router as plugin_router
 from .settings_routes import router as settings_router
 from .share_routes import router as share_router
+from .webhook_routes import router as webhook_router
 from .websocket_routes import router as websocket_router
 
 logging.basicConfig(
@@ -123,6 +125,21 @@ app.add_middleware(
 )
 app.add_middleware(CacheControlMiddleware)
 
+# Rate limiting is advertised by RATE_LIMIT_* in .env; the middleware exists,
+# so it is actually attached rather than merely configurable.
+if settings.rate_limit_enabled:
+    app.add_middleware(
+        RateLimitMiddleware,
+        limiter=RateLimiter(
+            RateLimitConfig(
+                requests_per_minute=settings.rate_limit_per_minute,
+                requests_per_hour=settings.rate_limit_per_hour,
+                requests_per_day=settings.rate_limit_per_day,
+                trust_forwarded_for=settings.rate_limit_trust_forwarded_for,
+            )
+        ),
+    )
+
 for router in (
     health_router,
     settings_router,
@@ -134,6 +151,7 @@ for router in (
     plugin_router,
     auth_router,
     cloud_router,
+    webhook_router,
 ):
     app.include_router(router)
 

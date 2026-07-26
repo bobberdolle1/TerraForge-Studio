@@ -215,6 +215,10 @@ class TerraForgeGenerator:
 
         status.status = TaskStatus.PROCESSING
         started = time.perf_counter()
+        self._emit_event(
+            "generation.started",
+            {"task_id": task_id, "name": request.name, "resolution": request.resolution},
+        )
 
         try:
             logger.info("Starting terrain generation: '%s' (task: %s)", request.name, task_id)
@@ -324,6 +328,18 @@ class TerraForgeGenerator:
             )
 
             logger.info("Terrain generation completed: %s", request.name)
+            self._emit_event(
+                "generation.completed",
+                {
+                    "task_id": task_id,
+                    "name": request.name,
+                    "duration_seconds": result.duration_seconds,
+                    "elevation_source": provenance.source,
+                    "synthetic": provenance.synthetic,
+                    "formats": [export.format for export in successful],
+                    "download_url": status.download_url,
+                },
+            )
             return status
 
         except Exception as exc:
@@ -332,7 +348,21 @@ class TerraForgeGenerator:
             status.error = str(exc)
             status.updated_at = _utcnow()
             status.message = f"Generation of '{request.name}' failed"
+            self._emit_event(
+                "generation.failed",
+                {"task_id": task_id, "name": request.name, "error": str(exc)},
+            )
             return status
+
+    @staticmethod
+    def _emit_event(name: str, data: Dict[str, Any]) -> None:
+        """Notify webhook subscribers; never let a subscriber break generation."""
+        try:
+            from ..api.webhook_routes import emit
+
+            emit(name, data)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Could not emit webhook event %s: %s", name, exc)
 
     # ------------------------------------------------------------------
     # Elevation

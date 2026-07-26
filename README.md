@@ -41,6 +41,12 @@
 - **Ollama** - локальный запуск моделей через cloud API
 - **Автоанализ** - опциональный автоматический анализ при выборе области
 
+### 🔌 API и интеграция
+- **Вебхуки** - события `generation.started/completed/failed` с подписью HMAC-SHA256 по точным байтам тела
+- **Rate limiting** - лимиты на минуту/час/сутки, health-пробы и метрики не throttling'уются
+- **Пробы для k8s** - `/health/live`, `/health/ready` (проверяет запись на диск и доступность источника), `/metrics` для Prometheus
+- **WebSocket** - живой прогресс генерации
+
 ### ⚙️ Настройки и управление
 - **Data Sources** - SRTM (бесплатно, без ключа) + SentinelHub, OpenTopography, Azure Maps, Google Earth Engine
 - **Export Profiles** - настраиваемые профили для разных движков

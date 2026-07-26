@@ -115,14 +115,17 @@ class OSMSource(BaseDataSource):
         try:
             result = {"type": "FeatureCollection", "features": []}
 
-            # Convert bbox to format for osmnx
-            north, south, east, west = bbox.north, bbox.south, bbox.east, bbox.west
+            # osmnx 2.0 takes one (left, bottom, right, top) tuple; the
+            # four-positional-argument form used previously was removed in
+            # that release, so this call raised TypeError even when osmnx
+            # was installed.
+            bbox_tuple = (bbox.west, bbox.south, bbox.east, bbox.north)
 
             # Retrieve roads
             if "roads" in feature_types:
                 try:
                     G = ox.graph_from_bbox(
-                        north, south, east, west, network_type="all", simplify=True
+                        bbox=bbox_tuple, network_type="all", simplify=True
                     )
                     # Convert graph to GeoDataFrame
                     edges = ox.graph_to_gdfs(G, nodes=False, edges=True)
@@ -149,7 +152,7 @@ class OSMSource(BaseDataSource):
             if "buildings" in feature_types:
                 try:
                     tags = {"building": True}
-                    buildings = ox.features_from_bbox(north, south, east, west, tags)
+                    buildings = ox.features_from_bbox(bbox=bbox_tuple, tags=tags)
 
                     for _idx, row in buildings.iterrows():
                         feature = {
@@ -171,7 +174,7 @@ class OSMSource(BaseDataSource):
             if "landuse" in feature_types:
                 try:
                     tags = {"landuse": True}
-                    landuse = ox.features_from_bbox(north, south, east, west, tags)
+                    landuse = ox.features_from_bbox(bbox=bbox_tuple, tags=tags)
 
                     for _idx, row in landuse.iterrows():
                         feature = {
@@ -191,7 +194,7 @@ class OSMSource(BaseDataSource):
             if "poi" in feature_types:
                 try:
                     tags = {"amenity": True, "shop": True, "tourism": True}
-                    poi = ox.features_from_bbox(north, south, east, west, tags)
+                    poi = ox.features_from_bbox(bbox=bbox_tuple, tags=tags)
 
                     for _idx, row in poi.iterrows():
                         feature = {
