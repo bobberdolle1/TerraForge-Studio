@@ -1,563 +1,391 @@
-# 🚀 Complete Deployment Guide - TerraForge Studio v4.x
+# 🚀 Deployment Guide - TerraForge Studio
 
-**Version**: 4.0.0  
-**Last Updated**: 22 October 2025
+How to run TerraForge Studio somewhere other than your laptop.
+
+**What it needs:** a Python runtime, disk, and outbound HTTPS. That is the
+whole list. There is no database, no cache server and no task broker —
+generation state lives in the process that started it, results are cached on
+disk under `CACHE_DIR`, and the batch queue is in memory. Earlier revisions of
+this guide walked through installing PostgreSQL and Redis and running Alembic
+migrations; nothing in the codebase has ever connected to any of them.
+
+**What it does not need:** API keys. SRTM elevation and Overpass vector data
+are both key-free, so a default deployment produces real terrain out of the
+box. Credentials only unlock the additional providers.
 
 ---
 
 ## 📋 Table of Contents
 
-1. [Prerequisites](#prerequisites)
-2. [Environment Setup](#environment-setup)
-3. [Frontend Deployment](#frontend-deployment)
-4. [Backend Deployment](#backend-deployment)
-5. [Database Setup](#database-setup)
-6. [Redis Configuration](#redis-configuration)
-7. [Environment Variables](#environment-variables)
-8. [SSL/HTTPS Setup](#ssl-https-setup)
-9. [Monitoring & Logging](#monitoring--logging)
-10. [Backup & Recovery](#backup--recovery)
-11. [Scaling](#scaling)
-12. [Troubleshooting](#troubleshooting)
+1. [Requirements](#requirements)
+2. [Docker (recommended)](#docker-recommended)
+3. [From source](#from-source)
+4. [Configuration](#configuration)
+5. [TLS](#tls)
+6. [Kubernetes](#kubernetes)
+7. [Monitoring](#monitoring)
+8. [Backups](#backups)
+9. [Scaling](#scaling)
+10. [Troubleshooting](#troubleshooting)
 
 ---
 
-## Prerequisites
+## Requirements
 
-### Required Software
-- **Node.js**: 18.x or higher
-- **Python**: 3.11 or higher
-- **PostgreSQL**: 15 or higher
-- **Redis**: 7.x or higher
-- **Docker**: 24.x or higher (optional)
-- **Nginx**: Latest stable (for production)
-
-### System Requirements
-- **CPU**: 4+ cores recommended
-- **RAM**: 8GB minimum, 16GB recommended
-- **Storage**: 50GB+ SSD
-- **OS**: Ubuntu 22.04 LTS, CentOS 8+, or Windows Server 2019+
+| | |
+|---|---|
+| **Python** | 3.10 – 3.12 |
+| **Node.js** | 18 or 20, to build the frontend |
+| **CPU** | 2 cores minimum; generation is CPU bound and parallelises |
+| **RAM** | 4 GB minimum, 8 GB comfortable — a 8192² heightmap is ~500 MB in flight |
+| **Disk** | Depends on retention. A 2048² map exported to UE5, Unity and GLTF measures ~37 MB, and the result cache keeps a copy |
+| **Network** | Outbound HTTPS to `s3.amazonaws.com` (elevation tiles) and the Overpass endpoints |
 
 ---
 
-## Environment Setup
+## Docker (recommended)
 
-### 1. Clone Repository
+The image builds the frontend and serves it alongside the API from one
+container.
 
 ```bash
-git clone https://github.com/your-org/terraforge-studio.git
-cd terraforge-studio
+docker compose up -d --build
 ```
 
-### 2. Install Dependencies
+That is the whole deployment: <http://localhost:8000>.
 
-#### Frontend
+Three named volumes keep state across rebuilds:
+
+| Volume | Holds |
+|---|---|
+| `terraforge_output` | Generated maps |
+| `terraforge_cache` | Result and elevation-tile cache — safe to delete |
+| `terraforge_data` | User accounts and the credential encryption key — **not** safe to delete |
+
+Add a reverse proxy on port 80 with rate limiting and generation-length
+timeouts:
+
 ```bash
-cd frontend-new
-npm install
+docker compose --profile proxy up -d
 ```
 
-#### Backend
+### Production stack
+
+`docker-compose.prod.yml` adds nginx terminating TLS and an optional
+Prometheus/Grafana pair:
+
 ```bash
-cd ../
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+cp .env.example .env          # set what you need, then
+docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml --profile monitoring up -d
+```
+
+Put your certificate in `./ssl` as `fullchain.pem` and `privkey.pem`, and set
+`server_name` in `nginx.prod.conf` to your domain.
+
+---
+
+## From source
+
+```bash
+git clone https://github.com/bobberdolle1/TerraForge-Studio.git
+cd TerraForge-Studio
+
+python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+
+cd frontend-new && npm ci && npm run build && cd ..
 ```
 
----
+The API serves `frontend-new/dist` at `/` when that directory exists, so the
+build output needs no separate web server.
 
-## Frontend Deployment
-
-### Development Build
+### Running it
 
 ```bash
-cd frontend-new
-npm run dev
+uvicorn realworldmapgen.api.main:app --host 0.0.0.0 --port 8000 --workers 4
 ```
 
-### Production Build
+Generation is CPU bound, so workers help. Note that each worker keeps its own
+task registry — see [Scaling](#scaling).
 
-```bash
-npm run build
-npm run preview  # Test production build locally
-```
-
-### Deploy to Static Hosting
-
-#### Netlify
-```bash
-# Install Netlify CLI
-npm install -g netlify-cli
-
-# Deploy
-netlify deploy --prod --dir=dist
-```
-
-#### Vercel
-```bash
-# Install Vercel CLI
-npm install -g vercel
-
-# Deploy
-vercel --prod
-```
-
-#### AWS S3 + CloudFront
-```bash
-# Build
-npm run build
-
-# Sync to S3
-aws s3 sync dist/ s3://your-bucket-name --delete
-
-# Invalidate CloudFront cache
-aws cloudfront create-invalidation --distribution-id YOUR_DIST_ID --paths "/*"
-```
-
----
-
-## Backend Deployment
-
-### Local Development
-
-```bash
-uvicorn realworldmapgen.api.main:app --reload --port 8000
-```
-
-### Production with Gunicorn
-
-```bash
-# Install Gunicorn
-pip install gunicorn uvicorn[standard]
-
-# Run with Gunicorn
-gunicorn realworldmapgen.api.main:app \
-  --workers 4 \
-  --worker-class uvicorn.workers.UvicornWorker \
-  --bind 0.0.0.0:8000 \
-  --access-logfile - \
-  --error-logfile -
-```
-
-### Systemd Service
-
-Create `/etc/systemd/system/terraforge.service`:
+### systemd
 
 ```ini
+# /etc/systemd/system/terraforge.service
 [Unit]
-Description=TerraForge API
-After=network.target postgresql.service redis.service
+Description=TerraForge Studio
+After=network-online.target
+Wants=network-online.target
 
 [Service]
-Type=notify
+Type=exec
 User=terraforge
-Group=terraforge
 WorkingDirectory=/opt/terraforge
-Environment="PATH=/opt/terraforge/venv/bin"
-ExecStart=/opt/terraforge/venv/bin/gunicorn \
-  realworldmapgen.api.main:app \
-  --workers 4 \
-  --worker-class uvicorn.workers.UvicornWorker \
-  --bind 0.0.0.0:8000
-Restart=always
-RestartSec=10
+EnvironmentFile=/opt/terraforge/.env
+ExecStart=/opt/terraforge/.venv/bin/uvicorn realworldmapgen.api.main:app \
+          --host 127.0.0.1 --port 8000 --workers 4
+Restart=on-failure
+RestartSec=5
+
+# The service writes only to its own directories.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/terraforge/output /opt/terraforge/cache /opt/terraforge/temp /opt/terraforge/data
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-Enable and start:
 ```bash
-sudo systemctl enable terraforge
-sudo systemctl start terraforge
+sudo systemctl daemon-reload
+sudo systemctl enable --now terraforge
 sudo systemctl status terraforge
 ```
 
----
+### Optional extras
 
-## Database Setup
-
-### PostgreSQL Installation
-
-```bash
-# Ubuntu/Debian
-sudo apt update
-sudo apt install postgresql postgresql-contrib
-
-# Start service
-sudo systemctl start postgresql
-sudo systemctl enable postgresql
-```
-
-### Create Database
-
-```sql
--- Connect to PostgreSQL
-sudo -u postgres psql
-
--- Create database and user
-CREATE DATABASE terraforge;
-CREATE USER terraforge WITH PASSWORD 'your_secure_password';
-GRANT ALL PRIVILEGES ON DATABASE terraforge TO terraforge;
-
--- Exit
-\q
-```
-
-### Run Migrations
+GeoTIFF export and the osmnx vector path need the geospatial stack, which
+pulls in GDAL:
 
 ```bash
-# Install Alembic
-pip install alembic
-
-# Initialize
-alembic init alembic
-
-# Create migration
-alembic revision --autogenerate -m "Initial migration"
-
-# Apply migrations
-alembic upgrade head
+sudo apt-get install -y gdal-bin libgdal-dev
+pip install -r requirements-optional.txt
 ```
+
+Without them everything else still works; a GeoTIFF export reports its own
+failure while the other formats succeed.
 
 ---
 
-## Redis Configuration
+## Configuration
 
-### Installation
-
-```bash
-# Ubuntu/Debian
-sudo apt install redis-server
-
-# Start service
-sudo systemctl start redis-server
-sudo systemctl enable redis-server
-```
-
-### Configure Redis
-
-Edit `/etc/redis/redis.conf`:
-
-```conf
-bind 127.0.0.1
-port 6379
-maxmemory 256mb
-maxmemory-policy allkeys-lru
-```
-
-Restart:
-```bash
-sudo systemctl restart redis-server
-```
-
----
-
-## Environment Variables
-
-Create `.env` file:
+Every setting is an environment variable or a line in `.env`. `.env.example`
+documents all of them; the ones that matter for a deployment:
 
 ```bash
-# Application
-APP_NAME=TerraForge Studio
-APP_ENV=production
-DEBUG=false
-SECRET_KEY=your-super-secret-key-change-this
-
-# Database
-DATABASE_URL=postgresql://terraforge:password@localhost:5432/terraforge
-
-# Redis
-REDIS_URL=redis://localhost:6379/0
-
-# API
+ENVIRONMENT=production
 API_HOST=0.0.0.0
 API_PORT=8000
-CORS_ORIGINS=https://yourdomain.com
 
-# Storage
-STORAGE_BACKEND=s3
-AWS_ACCESS_KEY_ID=your-key
-AWS_SECRET_ACCESS_KEY=your-secret
-AWS_S3_BUCKET=terraforge-data
-AWS_REGION=us-east-1
+# Where output, cache and credentials live. Keep the last one off any volume
+# you might clear.
+OUTPUT_DIR=/var/lib/terraforge/output
+CACHE_DIR=/var/lib/terraforge/cache
+TEMP_DIR=/var/lib/terraforge/temp
+AUTH_STORAGE_FILE=/var/lib/terraforge/data/users.json
+SETTINGS_STORAGE_FILE=/var/lib/terraforge/data/settings.json
+SECRET_KEY_FILE=/var/lib/terraforge/data/.secret_key
 
-# Authentication
-JWT_SECRET=your-jwt-secret
-JWT_ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=60
+# Only the origins your frontend is actually served from.
+CORS_ORIGINS=https://terrain.example.com
 
-# SSO
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-secret
-MICROSOFT_CLIENT_ID=your-microsoft-client-id
-MICROSOFT_CLIENT_SECRET=your-microsoft-secret
+LOG_LEVEL=INFO
+LOG_FORMAT=json
 
-# Monitoring
-SENTRY_DSN=your-sentry-dsn
-MIXPANEL_TOKEN=your-mixpanel-token
-
-# Rate Limiting
+# Guard rails for a public instance.
+MAX_AREA_KM2=100
+RATE_LIMIT_ENABLED=true
 RATE_LIMIT_PER_MINUTE=60
-RATE_LIMIT_PER_HOUR=1000
-RATE_LIMIT_PER_DAY=10000
+# Enable ONLY behind a proxy that overwrites X-Forwarded-For.
+RATE_LIMIT_TRUST_FORWARDED_FOR=true
+```
+
+Settings not listed in `.env.example` are ignored rather than rejected, so a
+typo'd variable name fails silently — check the name against that file if
+something appears not to take effect.
+
+### Locking the instance down
+
+Two independent mechanisms, either or both:
+
+```bash
+# A shared key in front of the whole API.
+API_KEY_ENABLED=true
+API_KEYS=generate-a-long-random-string,and-another-for-rotation
+```
+
+```bash
+# Per-user accounts with roles, for the administrative endpoints.
+# See docs/API_EXAMPLES.md#authentication-and-users
+```
+
+`/api/health`, `/health*`, `/metrics` and the schema endpoints stay reachable
+without a key so orchestrator probes keep working.
+
+### Credential storage
+
+Provider API keys entered through the settings UI are encrypted with a Fernet
+key generated at first start and written to `SECRET_KEY_FILE` with `0600`
+permissions.
+
+- **Back that file up.** Without it the stored credentials cannot be decrypted.
+- **Do not commit it.** `data/` is in `.gitignore`.
+- If it was created by a build before the key became random, treat the stored
+  credentials as exposed and rotate them — see
+  [SETTINGS_GUIDE.md](SETTINGS_GUIDE.md#-security).
+
+---
+
+## TLS
+
+Terminate TLS at nginx and keep the application on localhost. `nginx.prod.conf`
+is a complete configuration; with certbot:
+
+```bash
+sudo apt-get install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d terrain.example.com
+```
+
+Renewal is installed as a systemd timer by the certbot package — check it with
+`systemctl list-timers | grep certbot`.
+
+Two things the proxy must get right, both already in `nginx.prod.conf`:
+
+- **`proxy_read_timeout`** well above a minute. Generating a large area takes
+  minutes, and a 60 second timeout cuts the request off at the proxy while the
+  work continues on the server.
+- **`X-Forwarded-For`** overwritten, not appended blindly, if you set
+  `RATE_LIMIT_TRUST_FORWARDED_FOR=true`. Otherwise a client can rotate the
+  header to sidestep the rate limit.
+
+---
+
+## Kubernetes
+
+`k8s/deployment.yml` contains a namespace, a PVC, one deployment, and a
+ClusterIP service:
+
+```bash
+docker build -t terraforge/studio:latest .
+kubectl apply -f k8s/deployment.yml
+kubectl -n terraforge-prod rollout status deploy/terraforge
+```
+
+The probes are the real ones:
+
+- `/health/live` — the process is up.
+- `/health/ready` — the output directory is writable **and** an elevation
+  source answers. A pod without egress therefore stays out of the Service,
+  which is correct: it could not serve a generation anyway.
+
+Provider credentials come from an optional Secret; without it the pod starts
+anyway and uses the key-free sources:
+
+```bash
+kubectl -n terraforge-prod create secret generic terraforge-credentials \
+  --from-literal=opentopography-api-key=…
 ```
 
 ---
 
-## SSL/HTTPS Setup
+## Monitoring
 
-### Let's Encrypt with Certbot
+`/metrics` returns JSON — application version, uptime, task counts by status,
+and process CPU/memory when `psutil` is installed:
 
 ```bash
-# Install Certbot
-sudo apt install certbot python3-certbot-nginx
-
-# Obtain certificate
-sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
-
-# Auto-renewal (already setup)
-sudo certbot renew --dry-run
+curl http://localhost:8000/metrics
 ```
 
-### Nginx Configuration
+`prometheus.yml` scrapes it directly; no exporter sidecar is involved. Bring it
+up with the `monitoring` profile shown above.
 
-`/etc/nginx/sites-available/terraforge`:
-
-```nginx
-upstream backend {
-    server 127.0.0.1:8000;
-}
-
-server {
-    listen 80;
-    server_name yourdomain.com www.yourdomain.com;
-    return 301 https://$server_name$request_uri;
-}
-
-server {
-    listen 443 ssl http2;
-    server_name yourdomain.com www.yourdomain.com;
-
-    ssl_certificate /etc/letsencrypt/live/yourdomain.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/yourdomain.com/privkey.pem;
-
-    # Frontend
-    location / {
-        root /var/www/terraforge/dist;
-        try_files $uri $uri/ /index.html;
-    }
-
-    # API
-    location /api {
-        proxy_pass http://backend;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    # WebSocket
-    location /ws {
-        proxy_pass http://backend;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-    }
-}
-```
-
-Enable and restart:
-```bash
-sudo ln -s /etc/nginx/sites-available/terraforge /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl restart nginx
-```
+Logs go to stdout, so `journalctl -u terraforge -f` or `docker compose logs -f`
+is the whole story. Set `LOG_FORMAT=json` for structured output.
 
 ---
 
-## Monitoring & Logging
+## Backups
 
-### Setup Logging
+Three directories, with very different value:
 
-Create `/var/log/terraforge/`:
-```bash
-sudo mkdir -p /var/log/terraforge
-sudo chown terraforge:terraforge /var/log/terraforge
-```
-
-### Sentry Integration
-
-Already configured in `sentry.ts`. Just set `SENTRY_DSN` in environment.
-
-### System Monitoring
+| Path | Back up? | Why |
+|---|---|---|
+| `data/` | **Yes** | Accounts and the credential encryption key. Small. Irreplaceable. |
+| `output/` | Your call | Regenerable from the same request, at the cost of time |
+| `cache/` | No | Purely derived; deleting it costs a re-fetch |
 
 ```bash
-# Install monitoring tools
-sudo apt install htop iotop nethogs
+#!/usr/bin/env bash
+# /usr/local/bin/terraforge-backup
+set -euo pipefail
 
-# View logs
-sudo journalctl -u terraforge -f
-tail -f /var/log/terraforge/app.log
+BACKUP_DIR=/var/backups/terraforge
+STAMP=$(date +%Y%m%d-%H%M%S)
+mkdir -p "$BACKUP_DIR"
+
+tar czf "$BACKUP_DIR/terraforge-$STAMP.tar.gz" \
+    -C /var/lib/terraforge data output
+
+find "$BACKUP_DIR" -name 'terraforge-*.tar.gz' -mtime +7 -delete
 ```
-
----
-
-## Backup & Recovery
-
-### Database Backup
 
 ```bash
-# Create backup script
-cat > /opt/terraforge/backup.sh << 'EOF'
-#!/bin/bash
-BACKUP_DIR=/backups/terraforge
-DATE=$(date +%Y%m%d_%H%M%S)
-
-# Database backup
-pg_dump -U terraforge terraforge | gzip > $BACKUP_DIR/db_$DATE.sql.gz
-
-# Keep last 7 days
-find $BACKUP_DIR -name "db_*.sql.gz" -mtime +7 -delete
-EOF
-
-chmod +x /opt/terraforge/backup.sh
-
-# Add to crontab (daily at 2 AM)
-0 2 * * * /opt/terraforge/backup.sh
+sudo crontab -e
+# 0 2 * * * /usr/local/bin/terraforge-backup
 ```
+
+Restoring is untarring the archive back into place and restarting.
 
 ---
 
 ## Scaling
 
-### Horizontal Scaling
+**Scale up before scaling out.** Generation is CPU and memory bound, and both
+`--workers N` and multiple replicas hit the same wall: the task registry lives
+in the process that accepted the request. A client polling
+`/api/status/{task_id}` against a different worker gets a 404.
 
-Use load balancer (Nginx, HAProxy, AWS ELB):
+Practical options today:
 
-```nginx
-upstream backend_cluster {
-    least_conn;
-    server backend1.local:8000;
-    server backend2.local:8000;
-    server backend3.local:8000;
-}
-```
+- One instance with `--workers 4` behind a proxy with sticky sessions
+  (`ip_hash` in nginx), so a client stays on the worker holding its task.
+- One instance and vertical scaling — this is what `k8s/deployment.yml` does,
+  with `replicas: 1` and a comment saying why.
 
-### Docker Deployment
-
-```yaml
-# docker-compose.yml
-version: '3.8'
-
-services:
-  frontend:
-    build: ./frontend-new
-    ports:
-      - "80:80"
-    depends_on:
-      - backend
-
-  backend:
-    build: .
-    ports:
-      - "8000:8000"
-    environment:
-      - DATABASE_URL=postgresql://terraforge:password@db:5432/terraforge
-      - REDIS_URL=redis://redis:6379/0
-    depends_on:
-      - db
-      - redis
-
-  db:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: terraforge
-      POSTGRES_USER: terraforge
-      POSTGRES_PASSWORD: password
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-
-  redis:
-    image: redis:7-alpine
-    volumes:
-      - redisdata:/data
-
-volumes:
-  pgdata:
-  redisdata:
-```
-
-Deploy:
-```bash
-docker-compose up -d
-```
+Genuine horizontal scaling needs shared task state, which does not exist yet.
+Anything that claims otherwise is describing a system that was never built.
 
 ---
 
 ## Troubleshooting
 
-### Common Issues
+**`/health/ready` returns 503.** Look at the response body — it names the
+failing check. Either the output directory is not writable (permissions on the
+volume) or no elevation source answered (egress blocked, or every source
+disabled in configuration).
 
-**Frontend not loading:**
-```bash
-# Check build
-npm run build
-# Check nginx config
-sudo nginx -t
-# Check logs
-sudo tail -f /var/log/nginx/error.log
-```
+**Generation always returns synthetic terrain.** `result.elevation.synthetic`
+is `true` when every real source failed and the procedural fallback ran. Check
+`SRTM_ENABLED` and outbound access to `s3.amazonaws.com`. Set
+`ALLOW_SYNTHETIC_FALLBACK=false` to make the failure loud instead.
 
-**API errors:**
-```bash
-# Check service
-sudo systemctl status terraforge
-# Check logs
-sudo journalctl -u terraforge -n 100
-# Check database connection
-psql -U terraforge -d terraforge
-```
+**A setting appears to do nothing.** Unknown keys are ignored by design, so a
+misspelled variable is silent. Compare against `.env.example`.
 
-**High memory usage:**
-```bash
-# Check processes
-htop
-# Restart services
-sudo systemctl restart terraforge
-sudo systemctl restart redis
-```
+**Roads and buildings come back empty.** Overpass is a shared public service
+and refuses large areas; `OVERPASS_MAX_AREA_KM2` caps requests at 25 km² by
+default. It also rate limits — the client already retries on 429 across
+several endpoints.
+
+**Everything 401s after enabling the API key gate.** `API_KEY_ENABLED=true`
+with an empty `API_KEYS` rejects every request rather than failing open. Set a
+key.
+
+**Users cannot log in after a restore.** Check that `data/users.json` came back
+with the deployment; accounts are stored there, not in the cache.
+
+**GeoTIFF export fails while other formats succeed.** `rasterio` is not
+installed — see [Optional extras](#optional-extras). Each format reports
+independently, so this does not fail the task.
 
 ---
 
-## Post-Deployment Checklist
+<div align="center">
 
-- [ ] Frontend accessible via HTTPS
-- [ ] API responding correctly
-- [ ] WebSocket connections working
-- [ ] Database migrations applied
-- [ ] Redis cache functioning
-- [ ] SSL certificates valid
-- [ ] Monitoring active (Sentry)
-- [ ] Backups configured
-- [ ] Logs rotating properly
-- [ ] Rate limiting active
-- [ ] All environment variables set
-- [ ] Security headers configured
-- [ ] Firewall rules applied
+[Back to Docs](README.md) • [API Examples](API_EXAMPLES.md) • [Settings](SETTINGS_GUIDE.md)
 
----
-
-## Support
-
-- **Documentation**: https://docs.terraforge.studio
-- **Discord**: https://discord.gg/terraforge
-- **Email**: support@terraforge.studio
-- **GitHub**: https://github.com/terraforge/studio
-
----
-
-**Deployed**: 22 October 2025  
-**Version**: 4.0.0  
-**Status**: 🟢 Production Ready
+</div>

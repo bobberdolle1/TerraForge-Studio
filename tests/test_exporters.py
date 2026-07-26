@@ -8,12 +8,14 @@ import json
 
 import numpy as np
 import pytest
+from PIL import Image
 
 from realworldmapgen.core.terrain_generator import TerraForgeGenerator
 from realworldmapgen.exporters.base import TerrainData
 from realworldmapgen.exporters.generic.gltf_exporter import GLTFExporter
 from realworldmapgen.exporters.unity.terrain_exporter import UnityTerrainExporter
 from realworldmapgen.exporters.unreal5.heightmap_exporter import Unreal5HeightmapExporter
+from realworldmapgen.exporters.unreal5.weightmap_exporter import Unreal5WeightmapExporter
 
 
 @pytest.fixture
@@ -262,3 +264,57 @@ async def test_ue5_reported_files_all_exist(terrain, tmp_path):
 
     for label, path in files.items():
         assert path.exists(), f"exporter reported {label} at {path}, which does not exist"
+
+
+# ---------------------------------------------------------------------------
+# UE5 weightmaps
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_ue5_weightmap_matches_the_snapped_heightmap(terrain, tmp_path):
+    """
+    UE5 snaps the heightmap to a valid landscape size while the weightmaps keep
+    the requested resolution. Packing them without resampling raised a
+    broadcast error, so any resolution that was not already a landscape size
+    failed the whole export - 2048 among them.
+    """
+    terrain.heightmap = terrain.heightmap[:63, :63]
+    terrain.weightmaps = {
+        layer: np.full((64, 64), 0.25, dtype=np.float32)
+        for layer in Unreal5WeightmapExporter.CHANNEL_LAYERS
+    }
+
+    files = await Unreal5WeightmapExporter(tmp_path).export(terrain)
+
+    with Image.open(files["weightmap"]) as image:
+        assert image.size == (63, 63)
+        assert image.mode == "RGBA"
+
+
+@pytest.mark.asyncio
+async def test_ue5_weightmap_channels_carry_the_layers(terrain, tmp_path):
+    terrain.weightmaps = {
+        "rock": np.ones_like(terrain.heightmap, dtype=np.float32),
+        "grass": np.zeros_like(terrain.heightmap, dtype=np.float32),
+        "dirt": np.zeros_like(terrain.heightmap, dtype=np.float32),
+        "sand": np.zeros_like(terrain.heightmap, dtype=np.float32),
+    }
+
+    files = await Unreal5WeightmapExporter(tmp_path).export(terrain)
+
+    with Image.open(files["weightmap"]) as image:
+        pixels = np.array(image)
+
+    assert pixels[..., 0].min() == 255      # rock, fully weighted
+    assert pixels[..., 1].max() == 0        # grass, absent
+
+    metadata = json.loads(files["metadata"].read_text())
+    assert metadata["channels"] == {"R": "rock", "G": "grass", "B": "dirt", "A": "sand"}
+
+
+@pytest.mark.asyncio
+async def test_ue5_weightmaps_are_generated_when_absent(terrain, tmp_path):
+    """With no weightmaps supplied the exporter derives them from slope."""
+    files = await Unreal5WeightmapExporter(tmp_path).export(terrain)
+
+    with Image.open(files["weightmap"]) as image:
+        assert image.size == terrain.heightmap.shape[::-1]

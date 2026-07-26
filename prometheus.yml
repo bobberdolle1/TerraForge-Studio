@@ -1,51 +1,25 @@
+# Prometheus scrape configuration for TerraForge Studio.
+#
+# The application exposes /metrics itself, so it is scraped directly with no
+# exporter sidecar. Earlier revisions listed postgres-, redis-, node- and
+# nginx-exporter targets: the first two are for services this application does
+# not use, and none of them are started by either compose file, so every one
+# of those jobs sat permanently DOWN.
+
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
   external_labels:
-    cluster: 'terraforge-prod'
-    environment: 'production'
+    cluster: 'terraforge'
 
-# Alertmanager configuration
-alerting:
-  alertmanagers:
-    - static_configs:
-        - targets:
-            - alertmanager:9093
-
-# Load rules once and periodically evaluate them
-rule_files:
-  - "alerts/*.yml"
-
-# Scrape configurations
 scrape_configs:
-  # Backend API metrics
-  - job_name: 'backend'
+  # The application. Service name comes from docker-compose.prod.yml.
+  - job_name: 'terraforge'
     static_configs:
-      - targets: ['backend:8000']
+      - targets: ['terraforge:8000']
     metrics_path: '/metrics'
     scrape_interval: 10s
 
-  # PostgreSQL metrics
-  - job_name: 'postgresql'
-    static_configs:
-      - targets: ['postgres-exporter:9187']
-
-  # Redis metrics
-  - job_name: 'redis'
-    static_configs:
-      - targets: ['redis-exporter:9121']
-
-  # Node metrics
-  - job_name: 'node'
-    static_configs:
-      - targets: ['node-exporter:9100']
-
-  # Nginx metrics
-  - job_name: 'nginx'
-    static_configs:
-      - targets: ['nginx-exporter:9113']
-
-  # Prometheus self-monitoring
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']

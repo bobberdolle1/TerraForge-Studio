@@ -40,6 +40,9 @@ class Unreal5WeightmapExporter(BaseExporter):
             return False, "Heightmap data is missing"
         return True, None
 
+    #: Channel order of the exported RGBA weightmap.
+    CHANNEL_LAYERS = ("rock", "grass", "dirt", "sand")
+
     async def export(self, terrain_data: TerrainData) -> Dict[str, Path]:
         """Export weightmaps for UE5"""
 
@@ -51,18 +54,23 @@ class Unreal5WeightmapExporter(BaseExporter):
         else:
             weightmaps = terrain_data.weightmaps
 
-        # Export each channel as separate PNG (or combined RGBA)
-        weightmap_rgba = np.zeros(
-            (*terrain_data.heightmap.shape, 4), dtype=np.uint8
-        )
+        height, width = terrain_data.heightmap.shape
+        weightmap_rgba = np.zeros((height, width, 4), dtype=np.uint8)
 
-        channel_names = {"R": "rock", "G": "grass", "B": "dirt", "A": "sand"}
+        for idx, name in enumerate(self.CHANNEL_LAYERS):
+            if name not in weightmaps:
+                continue
 
-        for idx, (_channel, name) in enumerate(channel_names.items()):
-            if name in weightmaps:
-                weightmap_rgba[:, :, idx] = (weightmaps[name] * 255).astype(
-                    np.uint8
-                )
+            weights = np.clip(np.nan_to_num(weightmaps[name]), 0.0, 1.0)
+            # The heightmap is snapped to a valid UE5 landscape size (2048 ->
+            # 2017, for instance) while the weightmaps keep the requested
+            # resolution, so they are brought to the same grid before packing.
+            # Without this the export failed outright on any resolution that
+            # was not already a valid landscape size.
+            if weights.shape != (height, width):
+                weights = np.clip(self._resize_heightmap(weights, height), 0.0, 1.0)
+
+            weightmap_rgba[:, :, idx] = (weights * 255).astype(np.uint8)
 
         # Save combined RGBA weightmap
         filename = f"{terrain_data.name}_weightmap.png"
@@ -75,12 +83,8 @@ class Unreal5WeightmapExporter(BaseExporter):
 
         # Export metadata
         metadata = {
-            "channels": {
-                "R": "rock",
-                "G": "grass",
-                "B": "dirt",
-                "A": "sand",
-            },
+            "channels": dict(zip("RGBA", self.CHANNEL_LAYERS, strict=True)),
+            "resolution": [width, height],
             "usage": "Import as Landscape Layer Weightmap in UE5",
         }
 
