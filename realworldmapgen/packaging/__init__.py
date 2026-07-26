@@ -1,7 +1,7 @@
 """
-Packaging module for creating distributable mod files
+Packaging helpers for distributing generated terrain.
 """
 
-from .beamng_packager import BeamNGPackager
+from .archive import create_map_archive
 
-__all__ = ['BeamNGPackager']
+__all__ = ["create_map_archive"]

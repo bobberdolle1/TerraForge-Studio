@@ -22,18 +22,21 @@ export interface UserPresence {
   lastSeen: number;
 }
 
+/** Handler invoked when a subscribed realtime event fires. */
+export type SyncListener = (payload?: unknown) => void;
+
 export class RealtimeSync {
   private socket: Socket | null = null;
   private roomId: string | null = null;
   private userId: string;
-  private listeners: Map<string, Set<Function>> = new Map();
+  private listeners: Map<string, Set<SyncListener>> = new Map();
   private presenceUsers: Map<string, UserPresence> = new Map();
 
   constructor(userId: string) {
     this.userId = userId;
   }
 
-  connect(wsUrl: string, roomId: string, authToken: string): Promise<void> {
+  connect(wsUrl: string, roomId: string, _authToken: string): Promise<void> {
     return new Promise((resolve, reject) => {
       this.roomId = roomId;
       
@@ -104,14 +107,14 @@ export class RealtimeSync {
     this.send('state.updated', state);
   }
 
-  on(event: string, callback: Function): void {
+  on(event: string, callback: SyncListener): void {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set());
     }
     this.listeners.get(event)!.add(callback);
   }
 
-  off(event: string, callback: Function): void {
+  off(event: string, callback: SyncListener): void {
     const callbacks = this.listeners.get(event);
     if (callbacks) {
       callbacks.delete(callback);

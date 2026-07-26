@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Package, Download, Star, Search } from 'lucide-react';
+import { Star } from 'lucide-react';
 import { AccessibleButton } from './AccessibleButton';
 
 interface Plugin {
@@ -16,7 +16,6 @@ interface Plugin {
 
 export const PluginMarketplace: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [category, setCategory] = useState('all');
   
   const plugins: Plugin[] = [
     {

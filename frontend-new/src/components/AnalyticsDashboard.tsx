@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart, TrendingUp, Users, Clock, Download, Map } from 'lucide-react';
+import { TrendingUp, Users, Clock, Download, Map } from 'lucide-react';
 import { AccessibleButton } from './AccessibleButton';
 
 interface AnalyticsData {
@@ -19,7 +19,7 @@ export const AnalyticsDashboard: React.FC = () => {
     fetchAnalytics(timeRange);
   }, [timeRange]);
 
-  const fetchAnalytics = async (range: string) => {
+  const fetchAnalytics = async (_range: string) => {
     // Mock data - replace with actual API call
     setData({
       totalGenerations: 1247,

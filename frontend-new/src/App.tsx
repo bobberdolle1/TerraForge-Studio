@@ -61,15 +61,10 @@ function App() {
   useWebSocket(wsUrl, {
     onMessage: (data) => {
       if (data.type === 'status_update') {
-        setCurrentTask({
-          task_id: data.task_id,
-          status: data.status,
-          progress: data.progress,
-          current_step: data.current_step,
-          message: data.message,
-          error: data.error,
-          download_url: data.download_url,
-        });
+        // The server sends the full GenerationStatus payload; `type` is the
+        // only envelope field and is dropped here.
+        const { type: _type, ...status } = data;
+        setCurrentTask({ warnings: [], ...status } as GenerationStatus);
 
         // Handle completion/failure
         if (data.status === 'completed') {
@@ -448,7 +443,7 @@ function App() {
               <div className="glass rounded-lg p-6 shadow-lg">
                 <AIAssistant
                   bbox={selectedBbox}
-                  onApplyRecommendations={(settings) => {
+                  onApplyRecommendations={(_settings) => {
                     // Apply AI recommendations to export config
                     notify.success('AI recommendations applied');
                   }}

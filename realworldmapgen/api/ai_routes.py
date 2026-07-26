@@ -4,11 +4,12 @@ Provides AI-powered terrain analysis and recommendations
 """
 
 import logging
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
 from typing import Dict, Optional
 
-from ..ai.terrain_analyzer import terrain_analyzer, TerrainAnalysis, Recommendations
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+
+from ..ai.terrain_analyzer import Recommendations, TerrainAnalysis, terrain_analyzer
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/ai", tags=["ai"])
@@ -30,7 +31,7 @@ class RecommendationsRequest(BaseModel):
 async def ai_health_check():
     """Check if AI features are available"""
     available = await terrain_analyzer.check_ollama_available()
-    
+
     return {
         "ollama_available": available,
         "model": terrain_analyzer.model,
@@ -43,10 +44,10 @@ async def ai_health_check():
 async def analyze_terrain(request: AnalyzeRequest):
     """
     Analyze terrain using AI
-    
+
     Args:
         request: Analysis request with bbox and optional elevation data
-        
+
     Returns:
         Terrain analysis with recommendations
     """
@@ -59,30 +60,30 @@ async def analyze_terrain(request: AnalyzeRequest):
             'slope_max': 45,
             'area_km2': 25
         }
-        
+
         analysis = await terrain_analyzer.analyze_terrain_type(
             elevation_data,
             request.bbox
         )
-        
+
         return analysis
-        
+
     except Exception as e:
         logger.error(f"AI analysis failed: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Analysis failed: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/recommendations", response_model=Recommendations)
 async def get_recommendations(request: RecommendationsRequest):
     """
     Get AI-powered recommendations for terrain generation
-    
+
     Args:
         request: Recommendations request with bbox
-        
+
     Returns:
         Recommendations for optimal terrain generation
     """
@@ -91,28 +92,28 @@ async def get_recommendations(request: RecommendationsRequest):
             request.bbox,
             request.elevation_source
         )
-        
+
         return recommendations
-        
+
     except Exception as e:
         logger.error(f"Failed to get recommendations: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Recommendations failed: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/models")
 async def list_ai_models():
     """List available AI models"""
     available = await terrain_analyzer.check_ollama_available()
-    
+
     if not available:
         return {
             "available": False,
             "message": "Ollama not available"
         }
-    
+
     # In a full implementation, query Ollama for available models
     return {
         "available": True,
@@ -141,10 +142,10 @@ async def list_ai_models():
 async def optimize_generation_settings(request: AnalyzeRequest):
     """
     Optimize terrain generation settings based on AI analysis
-    
+
     Args:
         request: Analysis request
-        
+
     Returns:
         Optimized settings
     """
@@ -153,7 +154,7 @@ async def optimize_generation_settings(request: AnalyzeRequest):
             request.elevation_data or {},
             request.bbox
         )
-        
+
         # Build optimized settings
         optimized = {
             "resolution": analysis.recommended_resolution,
@@ -178,13 +179,13 @@ async def optimize_generation_settings(request: AnalyzeRequest):
                 f"Analysis confidence: {analysis.confidence * 100:.0f}%",
             ] + analysis.warnings
         }
-        
+
         return optimized
-        
+
     except Exception as e:
         logger.error(f"Settings optimization failed: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Optimization failed: {str(e)}"
-        )
+        ) from e
 

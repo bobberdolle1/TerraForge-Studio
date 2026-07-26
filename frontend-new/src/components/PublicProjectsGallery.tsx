@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Globe, Heart, Eye, Download, Share2, Lock, Unlock } from 'lucide-react';
+import { Globe, Heart, Eye, Download, Share2, Lock } from 'lucide-react';
 import { AccessibleButton } from './AccessibleButton';
 
 interface Project {

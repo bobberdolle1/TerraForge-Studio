@@ -5,7 +5,8 @@ Exports terrain heightmaps in UE5 Landscape format
 
 import json
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Optional
+
 import numpy as np
 from PIL import Image
 
@@ -135,7 +136,9 @@ class Unreal5HeightmapExporter(BaseExporter):
             filepath = self.output_dir / filename
 
             # Use PIL to save 16-bit grayscale PNG
-            image = Image.fromarray(heightmap_uint16, mode="I;16")
+            # A uint16 array already maps to PIL's "I;16" mode; passing mode
+            # explicitly is deprecated and removed in Pillow 13.
+            image = Image.fromarray(heightmap_uint16)
             image.save(filepath)
 
         return filepath

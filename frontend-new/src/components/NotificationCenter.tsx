@@ -11,7 +11,7 @@ export const NotificationCenter: React.FC = () => {
   useEffect(() => {
     setNotifications(notificationSystem.getAll());
 
-    const unsubscribe = notificationSystem.subscribe((notification) => {
+    const unsubscribe = notificationSystem.subscribe((_notification) => {
       setNotifications(notificationSystem.getAll());
     });
 

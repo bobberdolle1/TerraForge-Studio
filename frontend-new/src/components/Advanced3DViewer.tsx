@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Sun, Moon, Maximize2, RotateCcw, Camera } from 'lucide-react';
+import { Sun, Moon, RotateCcw } from 'lucide-react';
 import { AccessibleButton } from './AccessibleButton';
 
 interface ViewerSettings {

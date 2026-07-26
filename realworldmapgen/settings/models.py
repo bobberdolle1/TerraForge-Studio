@@ -2,9 +2,10 @@
 Settings Data Models
 """
 
-from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field, validator
 from enum import Enum
+from typing import List, Optional
+
+from pydantic import BaseModel, Field, validator
 
 
 class Language(str, Enum):
@@ -72,29 +73,29 @@ class DataSourceCredentials(BaseModel):
 
 class GenerationDefaults(BaseModel):
     """Default parameters for terrain generation"""
-    
+
     # Resolution
     default_resolution: int = Field(2048, ge=512, le=8192)
-    
+
     # Area limits
     max_area_km2: float = Field(100.0, gt=0, le=500.0)
-    
+
     # Elevation source priority (ordered list)
     elevation_source_priority: List[str] = Field(
         default=["opentopography", "srtm", "aster"]
     )
-    
+
     # Default features
     enable_roads: bool = True
     enable_buildings: bool = True
     enable_vegetation: bool = True
     enable_weightmaps: bool = True
     enable_water_bodies: bool = True
-    
+
     # Processing
     parallel_processing: bool = True
     max_workers: int = Field(4, ge=1, le=16)
-    
+
     @validator('elevation_source_priority')
     def validate_sources(cls, v):
         valid = ['opentopography', 'srtm', 'aster', 'azure_maps', 'sentinelhub']
@@ -115,7 +116,7 @@ class Unreal5Profile(BaseModel):
     export_weightmaps: bool = True
     export_splines: bool = True
     generate_import_script: bool = True
-    
+
     @validator('default_landscape_size')
     def validate_size(cls, v):
         valid_sizes = [1009, 2017, 4033, 8129]
@@ -131,7 +132,7 @@ class UnityProfile(BaseModel):
     export_splatmaps: bool = True
     export_prefabs: bool = True
     generate_import_script: bool = True
-    
+
     @validator('default_terrain_size')
     def validate_size(cls, v):
         valid_sizes = [513, 1025, 2049, 4097]
@@ -200,11 +201,11 @@ class AISettings(BaseModel):
 
 class UserSettings(BaseModel):
     """Complete user settings"""
-    
+
     # User profile
     user_name: Optional[str] = None
     user_email: Optional[str] = None
-    
+
     # Core settings
     credentials: DataSourceCredentials = Field(default_factory=DataSourceCredentials)
     generation: GenerationDefaults = Field(default_factory=GenerationDefaults)
@@ -212,11 +213,11 @@ class UserSettings(BaseModel):
     ui: UIPreferences = Field(default_factory=UIPreferences)
     cache: CacheSettings = Field(default_factory=CacheSettings)
     ai: Optional[AISettings] = Field(default_factory=AISettings)
-    
+
     # Meta
     version: str = "1.0.0"
     first_run: bool = True  # Show setup wizard
-    
+
     class Config:
         json_schema_extra = {
             "example": {

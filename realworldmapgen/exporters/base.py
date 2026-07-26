@@ -4,10 +4,11 @@ Defines interface for all terrain export formats
 """
 
 from abc import ABC, abstractmethod
-from enum import Enum
-from typing import Dict, Any, Optional
-from pathlib import Path
 from dataclasses import dataclass
+from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, Optional
+
 import numpy as np
 
 

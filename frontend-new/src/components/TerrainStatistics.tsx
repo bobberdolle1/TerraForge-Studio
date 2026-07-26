@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart3, TrendingUp, Mountain, Waves } from 'lucide-react';
+import { BarChart3, Mountain, Waves } from 'lucide-react';
 
 interface TerrainStats {
   minElevation: number;

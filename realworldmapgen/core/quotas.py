@@ -4,8 +4,9 @@ Manages generation limits, storage quotas, and API rate limits
 """
 
 from datetime import datetime, timedelta
-from typing import Optional, Dict
 from enum import Enum
+from typing import Dict
+
 from pydantic import BaseModel
 
 
@@ -91,24 +92,24 @@ class QuotaUsage(BaseModel):
 
 class QuotaManager:
     """Manages resource quotas and usage tracking"""
-    
+
     def __init__(self):
         self.user_plans: Dict[str, QuotaPlan] = {}
         self.usage: Dict[str, Dict[QuotaType, QuotaUsage]] = {}
-    
+
     def set_user_plan(self, user_id: str, plan: QuotaPlan):
         """Set quota plan for user"""
         self.user_plans[user_id] = plan
-    
+
     def get_user_plan(self, user_id: str) -> QuotaPlan:
         """Get user's quota plan"""
         return self.user_plans.get(user_id, QuotaPlan.FREE)
-    
+
     def get_user_limits(self, user_id: str) -> QuotaLimits:
         """Get quota limits for user"""
         plan = self.get_user_plan(user_id)
         return QUOTA_PLANS[plan]
-    
+
     def check_quota(
         self,
         user_id: str,
@@ -118,7 +119,7 @@ class QuotaManager:
         """Check if user has quota available"""
         limits = self.get_user_limits(user_id)
         usage = self.get_usage(user_id, quota_type)
-        
+
         # Get limit based on quota type
         if quota_type == QuotaType.TERRAIN_GENERATION:
             limit = limits.terrain_generation_per_month
@@ -130,13 +131,13 @@ class QuotaManager:
             limit = limits.webhook_calls_per_month
         else:
             return True
-        
+
         # Unlimited for enterprise
         if limit == -1:
             return True
-        
+
         return usage.count + amount <= limit
-    
+
     def consume_quota(
         self,
         user_id: str,
@@ -146,12 +147,12 @@ class QuotaManager:
         """Consume quota if available"""
         if not self.check_quota(user_id, quota_type, amount):
             return False
-        
+
         usage = self.get_usage(user_id, quota_type)
         usage.count += amount
-        
+
         return True
-    
+
     def get_usage(
         self,
         user_id: str,
@@ -160,12 +161,12 @@ class QuotaManager:
         """Get current usage for quota type"""
         if user_id not in self.usage:
             self.usage[user_id] = {}
-        
+
         if quota_type not in self.usage[user_id]:
             # Create new usage entry
             now = datetime.now()
             period_start, period_end = self._get_period(quota_type, now)
-            
+
             self.usage[user_id][quota_type] = QuotaUsage(
                 user_id=user_id,
                 quota_type=quota_type,
@@ -174,20 +175,20 @@ class QuotaManager:
                 period_end=period_end,
                 last_reset=now
             )
-        
+
         usage = self.usage[user_id][quota_type]
-        
+
         # Check if period expired
         if datetime.now() >= usage.period_end:
             self._reset_usage(user_id, quota_type)
-        
+
         return self.usage[user_id][quota_type]
-    
+
     def _reset_usage(self, user_id: str, quota_type: QuotaType):
         """Reset usage for new period"""
         now = datetime.now()
         period_start, period_end = self._get_period(quota_type, now)
-        
+
         self.usage[user_id][quota_type] = QuotaUsage(
             user_id=user_id,
             quota_type=quota_type,
@@ -196,7 +197,7 @@ class QuotaManager:
             period_end=period_end,
             last_reset=now
         )
-    
+
     def _get_period(
         self,
         quota_type: QuotaType,
@@ -214,9 +215,9 @@ class QuotaManager:
                 end = start.replace(year=start.year + 1, month=1)
             else:
                 end = start.replace(month=start.month + 1)
-        
+
         return start, end
-    
+
     def get_usage_percentage(
         self,
         user_id: str,
@@ -225,7 +226,7 @@ class QuotaManager:
         """Get usage as percentage of limit"""
         limits = self.get_user_limits(user_id)
         usage = self.get_usage(user_id, quota_type)
-        
+
         if quota_type == QuotaType.TERRAIN_GENERATION:
             limit = limits.terrain_generation_per_month
         elif quota_type == QuotaType.EXPORTS:
@@ -236,12 +237,12 @@ class QuotaManager:
             limit = limits.webhook_calls_per_month
         else:
             return 0.0
-        
+
         if limit == -1:
             return 0.0
-        
+
         return (usage.count / limit) * 100
-    
+
     def get_all_usage(self, user_id: str) -> Dict[QuotaType, QuotaUsage]:
         """Get all usage stats for user"""
         result = {}
@@ -260,17 +261,17 @@ def require_quota(quota_type: QuotaType, amount: int = 1):
         async def wrapper(*args, user_id: str = None, **kwargs):
             if not user_id:
                 raise ValueError("User ID required for quota check")
-            
+
             if not quota_manager.check_quota(user_id, quota_type, amount):
-                limits = quota_manager.get_user_limits(user_id)
+                quota_manager.get_user_limits(user_id)
                 raise PermissionError(
                     f"Quota exceeded for {quota_type}. "
                     f"Upgrade your plan for more resources."
                 )
-            
+
             result = await func(*args, user_id=user_id, **kwargs)
             quota_manager.consume_quota(user_id, quota_type, amount)
-            
+
             return result
         return wrapper
     return decorator

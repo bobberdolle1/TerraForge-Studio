@@ -3,7 +3,8 @@ Google Earth Engine Data Source
 Advanced geospatial analysis and massive datasets
 """
 
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 import numpy as np
 
 try:
@@ -15,10 +16,10 @@ except ImportError:
 
 from .base import (
     BaseDataSource,
-    DataSourceType,
-    DataSourceCapability,
     BoundingBox,
+    DataSourceCapability,
     DataSourceConfig,
+    DataSourceType,
 )
 
 
@@ -105,10 +106,10 @@ class EarthEngineSource(BaseDataSource):
 
         try:
             # Define region
-            region = ee.Geometry.Rectangle([bbox.west, bbox.south, bbox.east, bbox.north])
+            ee.Geometry.Rectangle([bbox.west, bbox.south, bbox.east, bbox.north])
 
             # Use SRTM dataset
-            dem = ee.Image("USGS/SRTMGL1_003")
+            ee.Image("USGS/SRTMGL1_003")
 
             # Get elevation data
             # Note: For production use, implement proper sampling and download

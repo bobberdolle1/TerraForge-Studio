@@ -5,13 +5,13 @@ Secure storage and management of user settings and API keys
 
 from .manager import SettingsManager, settings_manager
 from .models import (
-    UserSettings,
     DataSourceCredentials,
-    GenerationDefaults,
     ExportProfiles,
-    UIPreferences,
-    SettingsUpdate,
+    GenerationDefaults,
     MaskedCredentials,
+    SettingsUpdate,
+    UIPreferences,
+    UserSettings,
 )
 
 __all__ = [

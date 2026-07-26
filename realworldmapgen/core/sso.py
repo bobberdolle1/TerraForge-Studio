@@ -3,10 +3,11 @@ Single Sign-On (SSO) Integration
 Supports SAML 2.0 and OAuth 2.0/OpenID Connect
 """
 
-from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
-import jwt
 from enum import Enum
+from typing import Any, Dict, Optional
+
+import jwt
 
 
 class SSOProvider(str, Enum):
@@ -20,7 +21,7 @@ class SSOProvider(str, Enum):
 
 class SSOConfig:
     """SSO Configuration"""
-    
+
     def __init__(
         self,
         provider: SSOProvider,
@@ -44,7 +45,7 @@ class SSOConfig:
 
 class SSOUser:
     """SSO User Profile"""
-    
+
     def __init__(
         self,
         id: str,
@@ -66,15 +67,15 @@ class SSOUser:
 
 class SSOManager:
     """Manages SSO authentication"""
-    
+
     def __init__(self):
         self.configs: Dict[SSOProvider, SSOConfig] = {}
         self.sessions: Dict[str, SSOUser] = {}
-    
+
     def register_provider(self, config: SSOConfig):
         """Register SSO provider"""
         self.configs[config.provider] = config
-    
+
     def get_authorization_url(
         self,
         provider: SSOProvider,
@@ -84,7 +85,7 @@ class SSOManager:
         config = self.configs.get(provider)
         if not config:
             raise ValueError(f"Provider {provider} not configured")
-        
+
         if provider == SSOProvider.GOOGLE:
             auth_url = "https://accounts.google.com/o/oauth2/v2/auth"
             params = {
@@ -114,10 +115,10 @@ class SSOManager:
         else:
             auth_url = config.authorization_endpoint or ""
             params = {}
-        
+
         query = "&".join([f"{k}={v}" for k, v in params.items()])
         return f"{auth_url}?{query}"
-    
+
     async def exchange_code(
         self,
         provider: SSOProvider,
@@ -127,7 +128,7 @@ class SSOManager:
         config = self.configs.get(provider)
         if not config:
             raise ValueError(f"Provider {provider} not configured")
-        
+
         # In real implementation, make HTTP request to token endpoint
         # For now, return mock user
         user = SSOUser(
@@ -138,12 +139,12 @@ class SSOManager:
             provider_user_id=code[:16],
             avatar=None
         )
-        
+
         # Store session
         self.sessions[user.id] = user
-        
+
         return user
-    
+
     def create_session_token(
         self,
         user: SSOUser,
@@ -159,10 +160,10 @@ class SSOManager:
             "exp": datetime.utcnow() + timedelta(seconds=expires_in),
             "iat": datetime.utcnow()
         }
-        
+
         token = jwt.encode(payload, secret_key, algorithm="HS256")
         return token
-    
+
     def verify_session_token(
         self,
         token: str,
@@ -171,11 +172,11 @@ class SSOManager:
         """Verify JWT session token"""
         try:
             payload = jwt.decode(token, secret_key, algorithms=["HS256"])
-            
+
             user_id = payload.get("user_id")
             if user_id in self.sessions:
                 return self.sessions[user_id]
-            
+
             # Reconstruct user from token
             user = SSOUser(
                 id=payload["user_id"],
@@ -184,13 +185,13 @@ class SSOManager:
                 provider=SSOProvider(payload["provider"]),
                 provider_user_id=payload["user_id"]
             )
-            
+
             return user
         except jwt.ExpiredSignatureError:
             return None
         except jwt.InvalidTokenError:
             return None
-    
+
     def logout(self, user_id: str):
         """Logout user and invalidate session"""
         if user_id in self.sessions:

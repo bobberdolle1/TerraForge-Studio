@@ -1,139 +1,169 @@
 """
-FastAPI application for RealWorldMapGen-BNG
+FastAPI application for TerraForge Studio.
 """
 
+from __future__ import annotations
+
+import json
 import logging
-import uuid
-from typing import Dict, Any, List, Optional
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse, Response
-from fastapi.staticfiles import StaticFiles
+from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any, Dict, List
+
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from ..models import (
-    MapGenerationRequest, GenerationStatus, BoundingBox, ExportFormat
-)
-from ..core.terrain_generator import TerraForgeGenerator
-from ..config import settings
-from .settings_routes import router as settings_router
-from .batch_routes import router as batch_router
+from ..config import ensure_directories, settings
+from ..core.generator_provider import get_generator
+from ..models import GenerationStatus, MapGenerationRequest, TaskStatus
+from ..packaging import create_map_archive
 from .ai_routes import router as ai_router
-from .websocket_routes import router as websocket_router
-from .cache_routes import router as cache_router
-from .share_routes import router as share_router
-from .plugin_routes import router as plugin_router
 from .auth_routes import router as auth_router
+from .batch_routes import router as batch_router
+from .cache_routes import router as cache_router
 from .cloud_routes import router as cloud_router
+from .health import router as health_router
+from .plugin_routes import router as plugin_router
+from .settings_routes import router as settings_router
+from .share_routes import router as share_router
+from .websocket_routes import router as websocket_router
 
-# Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=getattr(logging, settings.log_level, logging.INFO),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
-# Create FastAPI app
-app = FastAPI(
-    title="TerraForge Studio",
-    description="Professional cross-platform 3D terrain and real-world map generator for Unreal Engine 5, Unity, and other game engines",
-    version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc"
-)
+API_VERSION = settings.app_version
 
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+#: Frontend build output, mounted at the root when present (desktop builds).
+STATIC_DIR = Path(__file__).resolve().parents[2] / "frontend-new" / "dist"
 
-# Add Cache-Control middleware for static files
+#: Files downloadable through ``/api/maps/{name}/download/{type}``.
+DOWNLOADABLE_FILES = {
+    "heightmap": "unreal5/{name}_heightmap.png",
+    "metadata": "unreal5/{name}_metadata.json",
+    "thumbnail": "thumbnail.png",
+}
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Prepare the runtime environment before the first request is served."""
+    ensure_directories()
+
+    generator = get_generator()
+
+    logger.info("Starting %s API v%s", settings.app_name, API_VERSION)
+    logger.info("Environment: %s", settings.environment)
+    logger.info("Elevation sources: %s", ", ".join(generator.sources) or "none")
+    logger.info("Output directory: %s", settings.output_dir.resolve())
+
+    if "srtm" in generator.sources:
+        logger.info("SRTM open terrain tiles enabled - no API key required")
+    else:
+        logger.warning(
+            "No key-free elevation source is enabled; generation will fall back "
+            "to synthetic terrain unless a premium source is configured"
+        )
+
+    yield
+
+    logger.info("Shutting down %s API", settings.app_name)
+
+
 class CacheControlMiddleware(BaseHTTPMiddleware):
+    """Set caching headers appropriate to each kind of response."""
+
+    STATIC_EXTENSIONS = (".js", ".css", ".woff2", ".woff", ".ttf")
+    NO_STORE = "no-cache, no-store, must-revalidate"
+
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
-        
-        # Don't cache API responses
-        if request.url.path.startswith('/api'):
-            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-            response.headers['Pragma'] = 'no-cache'
-            response.headers['Expires'] = '0'
-        # Cache static assets with versioned filenames (hashed)
-        elif any(request.url.path.endswith(ext) for ext in ['.js', '.css', '.woff2', '.woff', '.ttf']):
-            if '-' in request.url.path and '/assets/' in request.url.path:
-                # Vite adds hashes to filenames, so these can be cached forever
-                response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+        path = request.url.path
+
+        if path.startswith("/api") or path.endswith(".html") or path == "/":
+            response.headers["Cache-Control"] = self.NO_STORE
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+        elif path.endswith(self.STATIC_EXTENSIONS):
+            # Vite emits content-hashed filenames under /assets, which are safe
+            # to cache indefinitely. Everything else gets a short TTL.
+            if "/assets/" in path and "-" in path:
+                response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
             else:
-                # Other JS/CSS files without hashes - short cache
-                response.headers['Cache-Control'] = 'public, max-age=3600, must-revalidate'
-        # HTML files - never cache
-        elif request.url.path.endswith('.html') or request.url.path == '/':
-            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-            response.headers['Pragma'] = 'no-cache'
-            response.headers['Expires'] = '0'
-        
+                response.headers["Cache-Control"] = "public, max-age=3600, must-revalidate"
+
         return response
 
+
+app = FastAPI(
+    title=settings.app_name,
+    description=(
+        "Professional cross-platform 3D terrain and real-world map generator "
+        "for Unreal Engine 5, Unity, and other game engines"
+    ),
+    version=API_VERSION,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    lifespan=lifespan,
+)
+
+# CORS: a wildcard origin is incompatible with credentialed requests (browsers
+# reject the combination outright), so origins are listed explicitly.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.resolved_cors_origins(),
+    allow_credentials=settings.cors_allow_credentials,
+    allow_methods=settings.cors_allow_methods,
+    allow_headers=settings.cors_allow_headers,
+)
 app.add_middleware(CacheControlMiddleware)
 
-# Include routers
-app.include_router(settings_router)
-app.include_router(batch_router)
-app.include_router(ai_router)
-app.include_router(websocket_router)
-app.include_router(cache_router)
-app.include_router(share_router)
-app.include_router(plugin_router)
-app.include_router(auth_router)
-app.include_router(cloud_router)
+for router in (
+    health_router,
+    settings_router,
+    batch_router,
+    ai_router,
+    websocket_router,
+    cache_router,
+    share_router,
+    plugin_router,
+    auth_router,
+    cloud_router,
+):
+    app.include_router(router)
 
-# Global generator instance
-generator = TerraForgeGenerator()
 
+def _safe_map_dir(map_name: str) -> Path:
+    """
+    Resolve a map directory inside the output root.
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize application on startup"""
-    logger.info("Starting TerraForge Studio API v1.0.0")
-    logger.info("=" * 60)
-    
-    # Check available data sources
-    logger.info("Checking data sources...")
-    
-    # Check Ollama (optional - for future AI features)
-    try:
-        logger.info("○ Ollama check: Optional for AI terrain analysis")
-    except Exception as e:
-        logger.info(f"○ Ollama check failed: {e}")
-    
-    # Check OpenStreetMap (always available)
-    logger.info("✓ OpenStreetMap available (free)")
-    
-    # Check other sources from config
-    logger.info("○ Premium sources: Check .env for API keys")
-    logger.info("  - Sentinel Hub: Satellite imagery")
-    logger.info("  - OpenTopography: High-res DEMs")
-    logger.info("  - Azure Maps: Vector data")
-    logger.info("=" * 60)
-    
-    # Mount static files for desktop app (if available)
-    static_dir = Path(__file__).parent.parent.parent / "frontend-new" / "dist"
-    if static_dir.exists():
-        logger.info(f"✓ Mounting static frontend from {static_dir}")
-        app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="static")
+    Names are validated at the model layer, but download endpoints take raw
+    path segments, so the resolved path is re-checked against the root to
+    prevent traversal outside ``output_dir``.
+    """
+    root = settings.output_dir.resolve()
+    candidate = (root / map_name).resolve()
+
+    if candidate != root and root not in candidate.parents:
+        raise HTTPException(status_code=400, detail="Invalid map name")
+    if not candidate.is_dir():
+        raise HTTPException(status_code=404, detail="Map not found")
+
+    return candidate
 
 
 @app.get("/api")
 @app.get("/api/")
-async def api_root():
+async def api_root() -> Dict[str, Any]:
     """API root endpoint"""
     return {
-        "name": "TerraForge Studio",
-        "version": "1.0.0",
+        "name": settings.app_name,
+        "version": API_VERSION,
         "description": "Professional cross-platform 3D terrain and real-world map generator",
         "supported_engines": ["Unreal Engine 5", "Unity", "Generic (GLTF/GeoTIFF)"],
         "endpoints": {
@@ -143,70 +173,75 @@ async def api_root():
             "health": "/api/health",
             "sources": "/api/sources",
             "formats": "/api/formats",
-            "docs": "/docs"
+            "docs": "/docs",
         },
         "repository": "https://github.com/bobberdolle1/TerraForge-Studio",
-        "documentation": "https://github.com/bobberdolle1/TerraForge-Studio/docs"
+        "documentation": "https://github.com/bobberdolle1/TerraForge-Studio/tree/main/docs",
     }
 
 
 @app.get("/api/health")
-async def health_check():
-    """Health check endpoint"""
-    
-    # Check available sources
-    available_sources = []
+async def health_check() -> Dict[str, Any]:
+    """Health check endpoint reporting which data sources are usable."""
+    generator = get_generator()
+
+    available: List[str] = []
     for name, source in generator.sources.items():
         try:
-            is_avail = await source.is_available()
-            if is_avail:
-                available_sources.append(name)
-        except:
-            pass
-    
+            if await source.is_available():
+                available.append(name)
+        except Exception as exc:
+            logger.debug("Availability check failed for %s: %s", name, exc)
+
     return {
         "status": "healthy",
-        "version": "1.0.0",
+        "version": API_VERSION,
+        "environment": settings.environment,
         "data_sources": {
-            "available": available_sources,
-            "total": len(generator.sources)
+            "available": available,
+            "configured": list(generator.sources),
+            "total": len(generator.sources),
         },
         "settings": {
-            "max_area_km2": getattr(settings, 'max_area_km2', 100.0),
-            "default_resolution": getattr(settings, 'default_resolution', 2048),
-        }
+            "max_area_km2": settings.max_area_km2,
+            "default_resolution": settings.default_resolution,
+            "synthetic_fallback": settings.allow_synthetic_fallback,
+        },
     }
 
 
 @app.get("/api/sources")
-async def get_data_sources():
+async def get_data_sources() -> Dict[str, Any]:
     """Get available data sources and their status"""
+    generator = get_generator()
+    configured = generator.sources
+
     return {
         "elevation": {
             "srtm": {
-                "name": "SRTM (Shuttle Radar Topography Mission)",
+                "name": "SRTM / Open Terrain Tiles",
                 "resolution": "30m-90m",
                 "coverage": "Global",
                 "cost": "Free",
-                "available": True,
-                "requires_api_key": False
+                "available": "srtm" in configured,
+                "requires_api_key": False,
             },
             "opentopography": {
                 "name": "OpenTopography",
                 "resolution": "0.5m-30m (varies by region)",
                 "coverage": "Regional (LiDAR) + Global (SRTM/ASTER)",
                 "cost": "Free (with API key)",
-                "available": bool(getattr(settings, 'opentopography_api_key', None)),
-                "requires_api_key": True
+                "available": "opentopography" in configured,
+                "requires_api_key": True,
             },
             "azure_maps": {
                 "name": "Azure Maps Elevation API",
                 "resolution": "Varies",
                 "coverage": "Global",
                 "cost": "Paid (with free tier)",
-                "available": bool(getattr(settings, 'azure_maps_key', None)),
-                "requires_api_key": True
-            }
+                "available": "azure_maps" in configured,
+                "requires_api_key": True,
+            },
         },
         "imagery": {
             "sentinelhub": {
@@ -214,8 +249,8 @@ async def get_data_sources():
                 "resolution": "10m-60m",
                 "coverage": "Global",
                 "cost": "Paid (with trial)",
-                "available": bool(getattr(settings, 'sentinelhub_client_id', None)),
-                "requires_api_key": True
+                "available": "sentinelhub" in configured,
+                "requires_api_key": True,
             }
         },
         "vector": {
@@ -224,23 +259,23 @@ async def get_data_sources():
                 "type": "Vector (roads, buildings, POI)",
                 "coverage": "Global",
                 "cost": "Free",
-                "available": True,
-                "requires_api_key": False
+                "available": "osm" in configured,
+                "requires_api_key": False,
             },
             "azure_maps": {
                 "name": "Azure Maps",
                 "type": "Vector + POI",
                 "coverage": "Global",
                 "cost": "Paid (with free tier)",
-                "available": bool(getattr(settings, 'azure_maps_key', None)),
-                "requires_api_key": True
-            }
-        }
+                "available": "azure_maps" in configured,
+                "requires_api_key": True,
+            },
+        },
     }
 
 
 @app.get("/api/formats")
-async def get_export_formats():
+async def get_export_formats() -> Dict[str, Any]:
     """Get available export formats"""
     return {
         "formats": {
@@ -251,7 +286,7 @@ async def get_export_formats():
                 "valid_resolutions": [1009, 2017, 4033, 8129],
                 "supports_weightmaps": True,
                 "supports_roads": True,
-                "supports_buildings": True
+                "supports_buildings": True,
             },
             "unity": {
                 "name": "Unity Engine",
@@ -260,7 +295,7 @@ async def get_export_formats():
                 "valid_resolutions": [513, 1025, 2049, 4097],
                 "supports_weightmaps": True,
                 "supports_roads": True,
-                "supports_buildings": True
+                "supports_buildings": True,
             },
             "gltf": {
                 "name": "GLTF/GLB",
@@ -269,7 +304,7 @@ async def get_export_formats():
                 "valid_resolutions": "Any",
                 "supports_weightmaps": False,
                 "supports_roads": False,
-                "supports_buildings": False
+                "supports_buildings": False,
             },
             "geotiff": {
                 "name": "GeoTIFF",
@@ -278,295 +313,149 @@ async def get_export_formats():
                 "valid_resolutions": "Any",
                 "supports_weightmaps": False,
                 "supports_roads": False,
-                "supports_buildings": False
-            }
+                "supports_buildings": False,
+            },
         }
     }
 
 
-@app.post("/api/generate", response_model=GenerationStatus)
+@app.post("/api/generate", response_model=GenerationStatus, status_code=202)
 async def generate_terrain(
-    request: MapGenerationRequest,
-    background_tasks: BackgroundTasks
-):
+    request: MapGenerationRequest, background_tasks: BackgroundTasks
+) -> GenerationStatus:
     """
-    Start terrain generation process
-    
-    Args:
-        request: Terrain generation request with bbox and options
-        
-    Returns:
-        Generation status with task_id
+    Start terrain generation.
+
+    Returns immediately with a queued task; poll ``/api/status/{task_id}`` for
+    progress and the final result.
     """
-    logger.info(f"Received terrain generation request for '{request.name}'")
-    logger.info(f"  Export formats: {[f.value for f in request.export_formats]}")
-    logger.info(f"  Resolution: {request.resolution}")
-    logger.info(f"  Elevation source: {request.elevation_source.value}")
-    
-    # Validate bbox
-    area_km2 = request.bbox.area_km2()
-    max_area = getattr(settings, 'max_area_km2', 100.0)
-    if area_km2 > max_area:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Area too large: {area_km2:.2f} km² (max: {max_area} km²)"
-        )
-    
-    if area_km2 <= 0:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid bounding box"
-        )
-    
-    # Start generation and get task_id
-    task_id = str(uuid.uuid4())
-    
-    # Register task immediately so it's available for status checks
-    initial_status = GenerationStatus(
-        task_id=task_id,
-        status="pending",
-        progress=0.0,
-        current_step="Queued for processing",
-        message=f"Map generation for '{request.name}' has been queued"
+    generator = get_generator()
+
+    logger.info(
+        "Generation request '%s': formats=%s resolution=%d source=%s",
+        request.name,
+        [fmt.value for fmt in request.export_formats],
+        request.resolution,
+        request.elevation_source.value,
     )
-    generator.active_tasks[task_id] = initial_status
-    
-    async def run_generation():
+
+    area_km2 = request.bbox.area_km2()
+    if area_km2 > settings.max_area_km2:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Area too large: {area_km2:.2f} km² (max: {settings.max_area_km2} km²)",
+        )
+
+    status = generator.create_task(request)
+
+    async def run_generation() -> None:
+        # generate_terrain reports failures through the task status, so this
+        # wrapper only guards against a crash before that handling kicks in.
         try:
-            logger.info(f"Background task starting for {task_id}")
-            await generator.generate_terrain(request, task_id)
-            logger.info(f"Background task completed for {task_id}")
-        except Exception as e:
-            import traceback
-            logger.error(f"Background generation failed: {e}")
-            logger.error(f"Traceback: {traceback.format_exc()}")
-            # Update task status on error
-            if task_id in generator.active_tasks:
-                generator.active_tasks[task_id].status = "failed"
-                generator.active_tasks[task_id].error = str(e)
-    
+            await generator.generate_terrain(request, status.task_id)
+        except Exception as exc:
+            logger.exception("Background generation crashed for %s", status.task_id)
+            status.status = TaskStatus.FAILED
+            status.error = str(exc)
+
     background_tasks.add_task(run_generation)
-    
-    # Return initial status
-    return initial_status
+    return status
 
 
 @app.get("/api/status/{task_id}", response_model=GenerationStatus)
 @app.get("/api/tasks/{task_id}", response_model=GenerationStatus)
-async def get_generation_status(task_id: str):
-    """
-    Get status of a generation task
-    
-    Args:
-        task_id: Task identifier
-        
-    Returns:
-        Current status of the task
-    """
-    status = generator.get_task_status(task_id)
-    
-    if not status:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Task {task_id} not found"
-        )
-    
+async def get_generation_status(task_id: str) -> GenerationStatus:
+    """Get the current status of a generation task."""
+    status = get_generator().get_task_status(task_id)
+
+    if status is None:
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+
     return status
 
 
 @app.get("/api/tasks")
-async def list_tasks():
-    """List all generation tasks"""
-    tasks = await generator.list_tasks()
-    return {
-        "count": len(tasks),
-        "tasks": tasks
-    }
-
-
-@app.get("/api/ollama/models")
-async def list_ollama_models():
-    """List available Ollama models"""
-    try:
-        models = await generator.list_ollama_models()
-        return {
-            "available": True,
-            "models": models,
-            "configured": {
-                "vision": settings.ollama_vision_model,
-                "coder": settings.ollama_coder_model
-            }
-        }
-    except Exception as e:
-        logger.error(f"Failed to list Ollama models: {e}")
-        return {
-            "available": False,
-            "error": str(e)
-        }
-
-
-@app.post("/api/ollama/setup")
-async def setup_ollama():
-    """Pull required Ollama models"""
-    try:
-        results = await generator.setup_ollama_models()
-        return {
-            "success": all(results.values()),
-            "results": results
-        }
-    except Exception as e:
-        logger.error(f"Failed to setup Ollama: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to setup Ollama: {e}"
-        )
+async def list_tasks() -> Dict[str, Any]:
+    """List all generation tasks, newest first."""
+    tasks = get_generator().list_tasks()
+    return {"count": len(tasks), "tasks": tasks}
 
 
 @app.get("/api/maps")
-async def list_maps():
-    """List generated maps"""
+async def list_maps() -> Dict[str, Any]:
+    """List generated maps discovered in the output directory."""
     output_dir = settings.output_dir
-    
+
     if not output_dir.exists():
         return {"maps": []}
-    
-    maps = []
-    for map_dir in output_dir.iterdir():
-        if map_dir.is_dir():
-            info_file = map_dir / "info.json"
-            if info_file.exists():
-                import json
-                with open(info_file) as f:
-                    info = json.load(f)
-                    maps.append(info)
-    
-    return {"maps": maps}
+
+    maps: List[Dict[str, Any]] = []
+    for map_dir in sorted(output_dir.iterdir()):
+        if not map_dir.is_dir():
+            continue
+
+        entry: Dict[str, Any] = {
+            "name": map_dir.name,
+            "path": str(map_dir),
+            "has_thumbnail": (map_dir / "thumbnail.png").exists(),
+            "formats": sorted(
+                child.name for child in map_dir.iterdir() if child.is_dir()
+            ),
+        }
+
+        info_file = map_dir / "info.json"
+        if info_file.exists():
+            try:
+                entry["info"] = json.loads(info_file.read_text())
+            except (OSError, json.JSONDecodeError) as exc:
+                logger.warning("Could not read %s: %s", info_file, exc)
+
+        maps.append(entry)
+
+    return {"count": len(maps), "maps": maps}
 
 
 @app.get("/api/maps/{map_name}/download/{file_type}")
-async def download_map_file(map_name: str, file_type: str):
+async def download_map_file(map_name: str, file_type: str) -> FileResponse:
     """
-    Download a specific file from a generated map
-    
-    Args:
-        map_name: Name of the map
-        file_type: Type of file (heightmap, roads, objects, traffic, metadata, level, zip)
+    Download a file from a generated map.
+
+    ``file_type`` may be ``zip`` for the whole map, or one of the keys in
+    :data:`DOWNLOADABLE_FILES`.
     """
-    map_dir = settings.output_dir / map_name
-    
-    if not map_dir.exists():
-        raise HTTPException(status_code=404, detail="Map not found")
-    
-    # Handle zip download
+    map_dir = _safe_map_dir(map_name)
+
     if file_type == "zip":
-        from ..packaging import BeamNGPackager
-        
-        packager = BeamNGPackager()
-        
-        # Check if zip already exists
-        zip_path = settings.output_dir / f"{map_name}.zip"
-        
-        if not zip_path.exists():
-            # Create zip package
-            zip_path = packager.create_mod_package(
-                map_dir,
-                map_name,
-                settings.output_dir
-            )
-        
-        return FileResponse(
-            zip_path,
-            media_type="application/zip",
-            filename=zip_path.name
+        archive = create_map_archive(map_dir, settings.output_dir, map_name)
+        return FileResponse(archive, media_type="application/zip", filename=archive.name)
+
+    if file_type not in DOWNLOADABLE_FILES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Valid types: {sorted(DOWNLOADABLE_FILES)} or 'zip'",
         )
-    
-    file_map = {
-        "heightmap": f"{map_name}_heightmap.png",
-        "roads": "roads.json",
-        "objects": "objects.json",
-        "traffic": "traffic.json",
-        "metadata": "info.json",
-        "level": "main.level.json"
-    }
-    
-    if file_type not in file_map:
-        raise HTTPException(status_code=400, detail="Invalid file type")
-    
-    file_path = map_dir / file_map[file_type]
-    
+
+    file_path = map_dir / DOWNLOADABLE_FILES[file_type].format(name=map_name)
     if not file_path.exists():
-        raise HTTPException(status_code=404, detail="File not found")
-    
+        raise HTTPException(status_code=404, detail=f"File '{file_type}' not found for this map")
+
     return FileResponse(
-        file_path,
-        media_type="application/octet-stream",
-        filename=file_path.name
+        file_path, media_type="application/octet-stream", filename=file_path.name
     )
 
 
-@app.post("/api/batch/generate")
-async def batch_generate(requests: List[MapGenerationRequest]):
-    """
-    Generate multiple maps in batch
-    
-    Args:
-        requests: List of map generation requests
-        
-    Returns:
-        List of task IDs for tracking progress
-    """
-    logger.info(f"Starting batch generation of {len(requests)} maps")
-    
-    task_ids = []
-    
-    for request in requests:
-        try:
-            status = await generator.generate_map(request)
-            task_ids.append({
-                "name": request.name,
-                "task_id": status.task_id,
-                "status": status.status
-            })
-        except Exception as e:
-            logger.error(f"Failed to start generation for {request.name}: {e}")
-            task_ids.append({
-                "name": request.name,
-                "error": str(e)
-            })
-    
-    return {
-        "batch_id": str(uuid.uuid4()),
-        "total": len(requests),
-        "tasks": task_ids
-    }
-
-
-@app.post("/api/test/generate")
-async def test_generate():
-    """Test endpoint with sample coordinates"""
-    # Sample area: small section in San Francisco
-    test_request = MapGenerationRequest(
-        name="test_map",
-        bbox=BoundingBox(
-            north=37.8,
-            south=37.79,
-            east=-122.4,
-            west=-122.41
-        ),
-        resolution=1024,
-        export_engine="beamng",
-        enable_ai_analysis=True,
-        enable_roads=True,
-        enable_traffic_lights=True,
-        enable_parking=True,
-        enable_buildings=True,
-        enable_vegetation=True
-    )
-    
-    status = await generator.generate_map(test_request)
-    return status
+# Static frontend is mounted last so it never shadows the API routes above.
+if STATIC_DIR.is_dir():
+    logger.info("Mounting static frontend from %s", STATIC_DIR)
+    app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")
 
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+
+    uvicorn.run(
+        "realworldmapgen.api.main:app",
+        host=settings.api_host,
+        port=settings.api_port,
+        reload=settings.api_reload,
+    )

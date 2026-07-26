@@ -15,7 +15,7 @@ interface Achievement {
 }
 
 export const AchievementsPanel: React.FC = () => {
-  const [achievements, setAchievements] = useLocalStorage<Achievement[]>('terraforge-achievements', [
+  const [achievements] = useLocalStorage<Achievement[]>('terraforge-achievements', [
     {
       id: 'first_terrain',
       name: 'First Steps',

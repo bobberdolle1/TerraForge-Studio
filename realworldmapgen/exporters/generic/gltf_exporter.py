@@ -6,6 +6,7 @@ Exports terrain as 3D mesh in GLTF format
 import json
 from pathlib import Path
 from typing import Dict, Optional
+
 import numpy as np
 
 try:
@@ -34,13 +35,26 @@ class GLTFExporter(BaseExporter):
     - OR {name}.glb (single binary file)
     """
 
-    def __init__(self, output_dir: Path, binary_format: bool = True):
+    #: Beyond this many vertices per side a terrain mesh stops being useful in
+    #: a real-time engine (and stops fitting in memory during export), so the
+    #: heightmap is downsampled before triangulation.
+    DEFAULT_MAX_MESH_RESOLUTION = 512
+
+    def __init__(
+        self,
+        output_dir: Path,
+        binary_format: bool = True,
+        max_mesh_resolution: Optional[int] = None,
+    ):
         """
         Args:
             binary_format: If True, export as .glb, else as .gltf
+            max_mesh_resolution: Cap on mesh vertices per side. The heightmap
+                is decimated to this size before triangulation.
         """
         super().__init__(output_dir)
         self.binary_format = binary_format
+        self.max_mesh_resolution = max_mesh_resolution or self.DEFAULT_MAX_MESH_RESOLUTION
 
     @property
     def format_name(self) -> str:
@@ -93,93 +107,96 @@ class GLTFExporter(BaseExporter):
 
         return output_files
 
+    def _decimate(self, heightmap: np.ndarray) -> np.ndarray:
+        """Downsample the heightmap to at most ``max_mesh_resolution`` per side."""
+        rows, cols = heightmap.shape
+        limit = self.max_mesh_resolution
+
+        if rows <= limit and cols <= limit:
+            return heightmap
+
+        row_idx = np.linspace(0, rows - 1, min(rows, limit)).astype(np.intp)
+        col_idx = np.linspace(0, cols - 1, min(cols, limit)).astype(np.intp)
+        return heightmap[np.ix_(row_idx, col_idx)]
+
+    @staticmethod
+    def _build_faces(rows: int, cols: int) -> np.ndarray:
+        """
+        Build the triangle index array for a regular grid.
+
+        Fully vectorized: a 2048x2048 grid produces ~8.4M triangles, which a
+        per-quad Python loop cannot generate in reasonable time or memory.
+        """
+        # Index of the top-left corner of every quad in the grid.
+        row_starts = np.arange(rows - 1, dtype=np.int64)[:, None] * cols
+        col_offsets = np.arange(cols - 1, dtype=np.int64)[None, :]
+
+        v0 = (row_starts + col_offsets).ravel()
+        v1 = v0 + 1
+        v2 = v0 + cols
+        v3 = v2 + 1
+
+        # Two counter-clockwise triangles per quad.
+        faces = np.empty((v0.size * 2, 3), dtype=np.int64)
+        faces[0::2] = np.column_stack([v0, v1, v2])
+        faces[1::2] = np.column_stack([v1, v3, v2])
+        return faces
+
     async def _generate_mesh(self, terrain_data: TerrainData) -> "trimesh.Trimesh":
         """Generate 3D mesh from heightmap"""
 
-        heightmap = terrain_data.heightmap
-        resolution = terrain_data.resolution
+        heightmap = self._decimate(np.asarray(terrain_data.heightmap, dtype=np.float64))
+        heightmap = np.nan_to_num(heightmap, nan=0.0, posinf=0.0, neginf=0.0)
+        rows, cols = heightmap.shape
 
-        # Calculate real-world scale
-        bbox_width = terrain_data.bbox_east - terrain_data.bbox_west
-        bbox_height = terrain_data.bbox_north - terrain_data.bbox_south
+        # Real-world extent in metres, accounting for longitude convergence.
         center_lat = (terrain_data.bbox_north + terrain_data.bbox_south) / 2
+        width_m = (terrain_data.bbox_east - terrain_data.bbox_west) * 111_320 * np.cos(
+            np.radians(center_lat)
+        )
+        height_m = (terrain_data.bbox_north - terrain_data.bbox_south) * 110_574
 
-        # Approximate meters
-        width_m = bbox_width * 111000 * np.cos(np.radians(center_lat))
-        height_m = bbox_height * 111000
+        x = np.linspace(0, width_m, cols)
+        y = np.linspace(0, height_m, rows)
+        grid_x, grid_y = np.meshgrid(x, y)
 
-        # Generate vertices
-        x = np.linspace(0, width_m, resolution)
-        y = np.linspace(0, height_m, resolution)
-        X, Y = np.meshgrid(x, y)
+        vertices = np.column_stack(
+            [grid_x.ravel(), grid_y.ravel(), heightmap.ravel() * terrain_data.vertical_scale]
+        )
+        faces = self._build_faces(rows, cols)
 
-        # Z is elevation
-        Z = heightmap
-
-        # Flatten to vertex array
-        vertices = np.column_stack([X.ravel(), Y.ravel(), Z.ravel()])
-
-        # Generate faces (triangles)
-        faces = []
-        for i in range(resolution - 1):
-            for j in range(resolution - 1):
-                # Each quad becomes 2 triangles
-                v0 = i * resolution + j
-                v1 = i * resolution + (j + 1)
-                v2 = (i + 1) * resolution + j
-                v3 = (i + 1) * resolution + (j + 1)
-
-                faces.append([v0, v1, v2])
-                faces.append([v1, v3, v2])
-
-        faces = np.array(faces)
-
-        # Create mesh
-        mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
-
-        # Generate vertex colors based on elevation
-        colors = self._generate_vertex_colors(Z.ravel(), terrain_data)
-        mesh.visual.vertex_colors = colors
+        mesh = trimesh.Trimesh(vertices=vertices, faces=faces, process=False)
+        mesh.visual.vertex_colors = self._generate_vertex_colors(heightmap.ravel())
 
         return mesh
 
-    def _generate_vertex_colors(
-        self, elevations: np.ndarray, terrain_data: TerrainData
-    ) -> np.ndarray:
-        """Generate vertex colors based on elevation"""
+    @staticmethod
+    def _generate_vertex_colors(elevations: np.ndarray) -> np.ndarray:
+        """
+        Map elevation to an RGBA hypsometric gradient.
 
-        # Normalize elevations to 0-1
-        e_min = elevations.min()
-        e_max = elevations.max()
+        Vectorized with :func:`numpy.interp` so a multi-million vertex mesh is
+        coloured in one pass instead of a per-vertex Python loop.
+        """
+        e_min = float(elevations.min())
+        e_max = float(elevations.max())
 
-        if e_max == e_min:
-            normalized = np.zeros_like(elevations)
+        if e_max <= e_min:
+            normalized = np.zeros_like(elevations, dtype=np.float64)
         else:
             normalized = (elevations - e_min) / (e_max - e_min)
 
-        # Simple color gradient: blue (low) -> green (mid) -> brown (high)
-        colors = np.zeros((len(elevations), 4), dtype=np.uint8)
+        # Control points: water -> lowland green -> earth brown -> snow white.
+        stops = np.array([0.0, 0.33, 0.66, 1.0])
+        reds = np.array([0.0, 0.0, 139.0, 255.0])
+        greens = np.array([0.0, 255.0, 178.0, 255.0])
+        blues = np.array([255.0, 0.0, 69.0, 255.0])
 
-        for i, e in enumerate(normalized):
-            if e < 0.33:
-                # Low elevation: blue to green
-                r = 0
-                g = int(255 * (e / 0.33))
-                b = int(255 * (1 - e / 0.33))
-            elif e < 0.66:
-                # Mid elevation: green to brown
-                e_local = (e - 0.33) / 0.33
-                r = int(139 * e_local)
-                g = int(255 * (1 - e_local * 0.3))
-                b = 0
-            else:
-                # High elevation: brown to white
-                e_local = (e - 0.66) / 0.34
-                r = int(139 + 116 * e_local)
-                g = int(178 + 77 * e_local)
-                b = int(69 + 186 * e_local)
-
-            colors[i] = [r, g, b, 255]
+        colors = np.empty((normalized.size, 4), dtype=np.uint8)
+        colors[:, 0] = np.interp(normalized, stops, reds).astype(np.uint8)
+        colors[:, 1] = np.interp(normalized, stops, greens).astype(np.uint8)
+        colors[:, 2] = np.interp(normalized, stops, blues).astype(np.uint8)
+        colors[:, 3] = 255
 
         return colors
 

@@ -3,13 +3,14 @@ Webhook API Routes
 Support for webhook notifications on generation/export events
 """
 
-from fastapi import APIRouter, HTTPException, Request, BackgroundTasks
-from pydantic import BaseModel, HttpUrl
-from typing import List, Optional
-import hmac
 import hashlib
-import httpx
+import hmac
 from datetime import datetime
+from typing import List, Optional
+
+import httpx
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+from pydantic import BaseModel, HttpUrl
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 
@@ -42,7 +43,7 @@ class WebhookEvent(BaseModel):
 async def create_webhook(webhook: WebhookCreate):
     """
     Create a new webhook subscription
-    
+
     Events:
     - generation.started
     - generation.completed
@@ -52,7 +53,7 @@ async def create_webhook(webhook: WebhookCreate):
     - export.failed
     """
     webhook_id = f"wh_{datetime.now().timestamp()}"
-    
+
     new_webhook = Webhook(
         id=webhook_id,
         url=str(webhook.url),
@@ -60,7 +61,7 @@ async def create_webhook(webhook: WebhookCreate):
         secret=webhook.secret,
         created_at=datetime.now()
     )
-    
+
     webhooks_db[webhook_id] = new_webhook
     return new_webhook
 
@@ -84,7 +85,7 @@ async def delete_webhook(webhook_id: str):
     """Delete a webhook"""
     if webhook_id not in webhooks_db:
         raise HTTPException(status_code=404, detail="Webhook not found")
-    
+
     del webhooks_db[webhook_id]
     return {"success": True, "id": webhook_id}
 
@@ -94,13 +95,13 @@ async def update_webhook(webhook_id: str, update: WebhookCreate):
     """Update webhook configuration"""
     if webhook_id not in webhooks_db:
         raise HTTPException(status_code=404, detail="Webhook not found")
-    
+
     webhook = webhooks_db[webhook_id]
     webhook.url = str(update.url)
     webhook.events = update.events
     if update.secret:
         webhook.secret = update.secret
-    
+
     return webhook
 
 
@@ -112,10 +113,10 @@ async def trigger_webhook(event: WebhookEvent, background_tasks: BackgroundTasks
     for webhook in webhooks_db.values():
         if not webhook.is_active:
             continue
-            
+
         if event.event not in webhook.events:
             continue
-        
+
         # Send webhook in background
         background_tasks.add_task(
             send_webhook,
@@ -128,7 +129,7 @@ async def trigger_webhook(event: WebhookEvent, background_tasks: BackgroundTasks
 async def send_webhook(url: str, payload: dict, secret: Optional[str] = None):
     """Send HTTP POST to webhook URL"""
     headers = {"Content-Type": "application/json"}
-    
+
     # Add signature if secret provided
     if secret:
         payload_str = str(payload)
@@ -138,7 +139,7 @@ async def send_webhook(url: str, payload: dict, secret: Optional[str] = None):
             hashlib.sha256
         ).hexdigest()
         headers["X-TerraForge-Signature"] = f"sha256={signature}"
-    
+
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(

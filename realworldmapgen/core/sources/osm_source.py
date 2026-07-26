@@ -3,12 +3,13 @@ OpenStreetMap Data Source
 Free vector data (roads, buildings, land use)
 """
 
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 import numpy as np
 
 try:
+    import geopandas as gpd  # noqa: F401  # availability probe
     import osmnx as ox
-    import geopandas as gpd
 
     OSMNX_AVAILABLE = True
 except ImportError:
@@ -16,10 +17,10 @@ except ImportError:
 
 from .base import (
     BaseDataSource,
-    DataSourceType,
-    DataSourceCapability,
     BoundingBox,
+    DataSourceCapability,
     DataSourceConfig,
+    DataSourceType,
 )
 
 
@@ -126,7 +127,7 @@ class OSMSource(BaseDataSource):
                     # Convert graph to GeoDataFrame
                     edges = ox.graph_to_gdfs(G, nodes=False, edges=True)
 
-                    for idx, row in edges.iterrows():
+                    for _idx, row in edges.iterrows():
                         feature = {
                             "type": "Feature",
                             "geometry": row.geometry.__geo_interface__,
@@ -150,7 +151,7 @@ class OSMSource(BaseDataSource):
                     tags = {"building": True}
                     buildings = ox.features_from_bbox(north, south, east, west, tags)
 
-                    for idx, row in buildings.iterrows():
+                    for _idx, row in buildings.iterrows():
                         feature = {
                             "type": "Feature",
                             "geometry": row.geometry.__geo_interface__,
@@ -172,7 +173,7 @@ class OSMSource(BaseDataSource):
                     tags = {"landuse": True}
                     landuse = ox.features_from_bbox(north, south, east, west, tags)
 
-                    for idx, row in landuse.iterrows():
+                    for _idx, row in landuse.iterrows():
                         feature = {
                             "type": "Feature",
                             "geometry": row.geometry.__geo_interface__,
@@ -192,7 +193,7 @@ class OSMSource(BaseDataSource):
                     tags = {"amenity": True, "shop": True, "tourism": True}
                     poi = ox.features_from_bbox(north, south, east, west, tags)
 
-                    for idx, row in poi.iterrows():
+                    for _idx, row in poi.iterrows():
                         feature = {
                             "type": "Feature",
                             "geometry": row.geometry.__geo_interface__,

@@ -11,7 +11,7 @@ interface Version {
 }
 
 export const VersionControl: React.FC = () => {
-  const [versions, setVersions] = useState<Version[]>([
+  const [versions] = useState<Version[]>([
     {
       id: 'v1.0.3',
       message: 'Updated terrain parameters',

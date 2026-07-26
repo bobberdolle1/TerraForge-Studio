@@ -22,7 +22,7 @@ interface Challenge {
 }
 
 export const ChallengesPanel: React.FC = () => {
-  const [activeChallenges, setActiveChallenges] = useLocalStorage<Challenge[]>(
+  const [activeChallenges] = useLocalStorage<Challenge[]>(
     'terraforge-challenges',
     [
       {

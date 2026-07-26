@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, UserPlus, Crown, Shield } from 'lucide-react';
+import { UserPlus, Crown } from 'lucide-react';
 import { AccessibleButton } from './AccessibleButton';
 
 interface TeamMember {

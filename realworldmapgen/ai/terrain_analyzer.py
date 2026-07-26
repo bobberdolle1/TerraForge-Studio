@@ -3,12 +3,13 @@ AI-Powered Terrain Analyzer
 Uses Ollama for intelligent terrain analysis and recommendations
 """
 
-import logging
 import json
-from typing import Dict, List, Optional, Any
-from pydantic import BaseModel
-import httpx
+import logging
 from enum import Enum
+from typing import Any, Dict, List
+
+import httpx
+from pydantic import BaseModel
 
 from ..config import settings
 
@@ -69,18 +70,18 @@ class TerrainAnalyzer:
     """
     Analyzes terrain using AI to provide intelligent recommendations
     """
-    
+
     def __init__(self, ollama_host: str = "http://localhost:11434"):
         """
         Initialize the terrain analyzer
-        
+
         Args:
             ollama_host: Ollama API endpoint
         """
         self.ollama_host = ollama_host
         self.model = getattr(settings, 'ollama_vision_model', 'llama3.1:8b')
         self.timeout = 30.0
-        
+
     async def check_ollama_available(self) -> bool:
         """Check if Ollama is available"""
         try:
@@ -93,19 +94,19 @@ class TerrainAnalyzer:
         except Exception as e:
             logger.warning(f"Ollama not available: {e}")
             return False
-    
+
     async def analyze_terrain_type(
-        self, 
+        self,
         elevation_data: Dict[str, Any],
         bbox: Dict[str, float]
     ) -> TerrainAnalysis:
         """
         Analyze terrain type using AI
-        
+
         Args:
             elevation_data: Dictionary with elevation statistics
             bbox: Bounding box coordinates
-            
+
         Returns:
             Terrain analysis result
         """
@@ -113,37 +114,37 @@ class TerrainAnalyzer:
         if not await self.check_ollama_available():
             logger.info("Ollama not available, using rule-based analysis")
             return self._rule_based_analysis(elevation_data, bbox)
-        
+
         # Prepare analysis prompt
         prompt = self._create_analysis_prompt(elevation_data, bbox)
-        
+
         try:
             # Call Ollama API
             analysis_text = await self._call_ollama(prompt)
-            
+
             # Parse AI response
             return self._parse_ai_analysis(analysis_text, elevation_data)
-            
+
         except Exception as e:
             logger.error(f"AI analysis failed: {e}, falling back to rules")
             return self._rule_based_analysis(elevation_data, bbox)
-    
+
     def _create_analysis_prompt(
         self,
         elevation_data: Dict[str, Any],
         bbox: Dict[str, float]
     ) -> str:
         """Create analysis prompt for AI"""
-        
+
         elev_min = elevation_data.get('min', 0)
         elev_max = elevation_data.get('max', 0)
         elev_range = elev_max - elev_min
-        
+
         slope_avg = elevation_data.get('slope_avg', 0)
         slope_max = elevation_data.get('slope_max', 0)
-        
+
         area_km2 = elevation_data.get('area_km2', 0)
-        
+
         prompt = f"""Analyze this terrain data and provide recommendations:
 
 Location: {bbox.get('north', 0):.4f}°N, {bbox.get('west', 0):.4f}°W
@@ -176,9 +177,9 @@ Respond in JSON format:
   "confidence": 9,
   "reasoning": "Brief explanation..."
 }}"""
-        
+
         return prompt
-    
+
     async def _call_ollama(self, prompt: str) -> str:
         """Call Ollama API"""
         async with httpx.AsyncClient() as client:
@@ -197,25 +198,25 @@ Respond in JSON format:
             response.raise_for_status()
             data = response.json()
             return data.get('response', '')
-    
+
     def _parse_ai_analysis(
         self,
         ai_response: str,
         elevation_data: Dict[str, Any]
     ) -> TerrainAnalysis:
         """Parse AI response into TerrainAnalysis"""
-        
+
         try:
             # Extract JSON from response
             json_start = ai_response.find('{')
             json_end = ai_response.rfind('}') + 1
-            
+
             if json_start >= 0 and json_end > json_start:
                 json_str = ai_response[json_start:json_end]
                 parsed = json.loads(json_str)
             else:
                 raise ValueError("No JSON found in response")
-            
+
             # Map to TerrainAnalysis
             return TerrainAnalysis(
                 terrain_type=TerrainType(parsed.get('terrain_type', 'mixed')),
@@ -235,24 +236,24 @@ Respond in JSON format:
                 analysis_text=parsed.get('reasoning', 'AI analysis completed'),
                 warnings=[]
             )
-            
+
         except Exception as e:
             logger.error(f"Failed to parse AI response: {e}")
             # Fall back to rule-based
             return self._rule_based_analysis(elevation_data, {})
-    
+
     def _rule_based_analysis(
         self,
         elevation_data: Dict[str, Any],
         bbox: Dict[str, float]
     ) -> TerrainAnalysis:
         """Fallback rule-based analysis when AI is not available"""
-        
+
         elev_min = elevation_data.get('min', 0)
         elev_max = elevation_data.get('max', 0)
         elev_range = elev_max - elev_min
         slope_avg = elevation_data.get('slope_avg', 0)
-        
+
         # Determine terrain type based on rules
         if elev_range > 1000 and slope_avg > 15:
             terrain_type = TerrainType.MOUNTAIN
@@ -269,7 +270,7 @@ Respond in JSON format:
         else:
             terrain_type = TerrainType.MIXED
             vegetation = VegetationType.MIXED
-        
+
         # Determine resolution
         area_km2 = elevation_data.get('area_km2', 10)
         if area_km2 > 50:
@@ -278,12 +279,12 @@ Respond in JSON format:
             resolution = 2048
         else:
             resolution = 2048
-        
+
         # Recommended features
         features = ['roads', 'vegetation', 'water_bodies']
         if terrain_type == TerrainType.URBAN or terrain_type == TerrainType.COASTAL:
             features.append('buildings')
-        
+
         return TerrainAnalysis(
             terrain_type=terrain_type,
             vegetation_type=vegetation,
@@ -296,7 +297,7 @@ Respond in JSON format:
             analysis_text=f"Rule-based analysis: {terrain_type.value} terrain with {vegetation.value}",
             warnings=["AI analysis not available, using rule-based fallback"]
         )
-    
+
     async def get_recommendations(
         self,
         bbox: Dict[str, float],
@@ -304,11 +305,11 @@ Respond in JSON format:
     ) -> Recommendations:
         """
         Get AI-powered recommendations for terrain generation
-        
+
         Args:
             bbox: Bounding box
             elevation_source: Preferred elevation source
-            
+
         Returns:
             Recommendations object
         """
@@ -320,10 +321,10 @@ Respond in JSON format:
             'slope_max': 45,
             'area_km2': 25
         }
-        
+
         # Get terrain analysis
         analysis = await self.analyze_terrain_type(elevation_data, bbox)
-        
+
         # Build recommendations
         return Recommendations(
             suggested_resolution=analysis.recommended_resolution,

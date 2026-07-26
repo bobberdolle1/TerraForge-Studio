@@ -4,20 +4,20 @@ Qwen3-VL Vision Analysis через Ollama
 """
 
 import asyncio
-import httpx
 import base64
-from typing import Dict, Any, Optional
-from pathlib import Path
 import json
+from typing import Any, Dict, Optional
+
+import httpx
 
 
 class QwenVisionOllama:
     """Анализ спутниковых изображений через Qwen3-VL в Ollama"""
-    
+
     def __init__(self, ollama_url: str = "http://localhost:11434"):
         self.ollama_url = ollama_url
         self.model_name = "qwen3-vl:235b-cloud"
-        
+
     async def check_model_available(self) -> bool:
         """Проверить доступность модели Qwen3-VL"""
         try:
@@ -29,26 +29,21 @@ class QwenVisionOllama:
         except Exception as e:
             print(f"Error checking Qwen3-VL availability: {e}")
         return False
-    
+
     async def fetch_satellite_image(self, bbox: Dict[str, float]) -> Optional[bytes]:
         """
         Получить спутниковый снимок для области
         Использует Esri World Imagery
         """
-        # Центр bbox
-        lat = (bbox['north'] + bbox['south']) / 2
-        lon = (bbox['east'] + bbox['west']) / 2
-        zoom = 14  # Можно динамически рассчитать
-        
         # Esri ArcGIS API для статических изображений
-        url = f"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export"
+        url = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export"
         params = {
             'bbox': f"{bbox['west']},{bbox['south']},{bbox['east']},{bbox['north']}",
             'size': '1024,1024',
             'format': 'png',
             'f': 'image'
         }
-        
+
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.get(url, params=params)
@@ -56,21 +51,21 @@ class QwenVisionOllama:
                     return response.content
         except Exception as e:
             print(f"Error fetching satellite image: {e}")
-        
+
         return None
-    
+
     async def analyze_terrain_image(
-        self, 
+        self,
         bbox: Dict[str, float],
         image_bytes: Optional[bytes] = None
     ) -> Dict[str, Any]:
         """
         Анализировать спутниковое изображение через Qwen3-VL
-        
+
         Args:
             bbox: Координаты области
             image_bytes: Байты изображения (если None, загрузит автоматически)
-        
+
         Returns:
             Dict с результатами анализа
         """
@@ -79,10 +74,10 @@ class QwenVisionOllama:
             image_bytes = await self.fetch_satellite_image(bbox)
             if image_bytes is None:
                 return self._fallback_analysis(bbox)
-        
+
         # Конвертировать в base64 для Ollama
         image_base64 = base64.b64encode(image_bytes).decode('utf-8')
-        
+
         # Промпт для анализа
         prompt = """Проанализируй этот спутниковый снимок местности детально.
 
@@ -144,11 +139,11 @@ class QwenVisionOllama:
                         }
                     }
                 )
-                
+
                 if response.status_code == 200:
                     result = response.json()
                     analysis_text = result.get('response', '')
-                    
+
                     # Парсинг JSON из ответа
                     parsed = self._parse_analysis_response(analysis_text)
                     return {
@@ -160,11 +155,11 @@ class QwenVisionOllama:
                 else:
                     print(f"Ollama API error: {response.status_code}")
                     return self._fallback_analysis(bbox)
-                    
+
         except Exception as e:
             print(f"Error in Qwen3-VL analysis: {e}")
             return self._fallback_analysis(bbox)
-    
+
     def _parse_analysis_response(self, text: str) -> Dict[str, Any]:
         """Парсинг JSON ответа от модели"""
         try:
@@ -174,9 +169,10 @@ class QwenVisionOllama:
             if start != -1 and end > start:
                 json_str = text[start:end]
                 return json.loads(json_str)
-        except:
+        except (ValueError, TypeError):
+            # Model did not return parseable JSON; fall through to text parsing.
             pass
-        
+
         # Fallback: простой парсинг текста
         return {
             'terrain_type': self._extract_terrain_type(text),
@@ -186,7 +182,7 @@ class QwenVisionOllama:
             'quality_prediction': 75,
             'raw_analysis': text
         }
-    
+
     def _extract_terrain_type(self, text: str) -> str:
         """Извлечь тип местности из текста"""
         text_lower = text.lower()
@@ -200,11 +196,11 @@ class QwenVisionOllama:
             return 'water'
         else:
             return 'plains'
-    
+
     def _fallback_analysis(self, bbox: Dict[str, float]) -> Dict[str, Any]:
         """Fallback анализ без Vision модели"""
         area_km2 = abs(bbox['north'] - bbox['south']) * abs(bbox['east'] - bbox['west']) * 111 * 111
-        
+
         return {
             'success': False,
             'fallback': True,
@@ -223,11 +219,11 @@ class QwenVisionOllama:
 # Пример использования
 async def test_qwen_vision():
     vision = QwenVisionOllama()
-    
+
     # Проверка доступности
     available = await vision.check_model_available()
     print(f"Qwen3-VL доступен: {available}")
-    
+
     if available:
         # Тестовая область (Москва)
         bbox = {
@@ -236,7 +232,7 @@ async def test_qwen_vision():
             'east': 37.7,
             'west': 37.5
         }
-        
+
         result = await vision.analyze_terrain_image(bbox)
         print(json.dumps(result, indent=2, ensure_ascii=False))
 

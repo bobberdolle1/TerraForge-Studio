@@ -28,6 +28,13 @@
 - **GLTF 2.0** - универсальный 3D формат
 - **GeoTIFF** - для GIS и картографических приложений
 
+### 🏔️ Реальные данные высот / Real elevation data
+- **Работает без API-ключей** - источник SRTM на базе открытых Terrain Tiles (AWS Open Data) включён по умолчанию
+- **Глобальное покрытие** - SRTM, ASTER, NED, GMTED; высоты в метрах над уровнем моря
+- **Точная привязка** - тайлы Web Mercator подбираются по разрешению, склеиваются и обрезаются ровно по запрошенному bbox
+- **Кэш тайлов на диске** - повторные генерации в той же области не ходят в сеть
+- **Честная провенанс-метка** - ответ API всегда сообщает, из какого источника пришли высоты и не является ли рельеф синтетическим
+
 ### 🤖 AI Интеграция (опционально)
 - **Qwen3-VL** - анализ местности по спутниковым снимкам
 - **Qwen3-Coder** - умная генерация конфигураций
@@ -35,48 +42,82 @@
 - **Автоанализ** - опциональный автоматический анализ при выборе области
 
 ### ⚙️ Настройки и управление
-- **Data Sources** - интеграция с SentinelHub, OpenTopography, Azure Maps, Google Earth Engine
+- **Data Sources** - SRTM (бесплатно, без ключа) + SentinelHub, OpenTopography, Azure Maps, Google Earth Engine
 - **Export Profiles** - настраиваемые профили для разных движков
 - **Локализация** - полная поддержка English/Русский
 - **Темы** - Light/Dark/Auto режимы  
 
 ---
 
-## 🚀 Быстрый старт
+## 🚀 Быстрый старт / Quick Start
 
-### Требования
+### Требования / Requirements
 - Python 3.10+
 - Node.js 18+
-- Rust (для Tauri)
+- Rust (только для сборки Tauri / only for the Tauri desktop build)
 
 ### 1. Backend (FastAPI)
 
-```powershell
-cd TerraForge-Studio
-.venv\Scripts\activate  # Windows
-python -m uvicorn realworldmapgen.api.main:app --reload --host 0.0.0.0 --port 8000
+```bash
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+
+pip install -r requirements.txt
+uvicorn realworldmapgen.api.main:app --reload --port 8000
 ```
 
-### 2. Frontend (React + Tauri)
+Ключи API не нужны: свободный источник высот SRTM включён по умолчанию.  
+No API keys required - the free SRTM elevation source is enabled by default.
 
-```powershell
+Опциональные возможности (GLTF/GeoTIFF, данные OSM, премиум-провайдеры, AI):  
+Optional capabilities (GLTF/GeoTIFF export, OSM vector data, premium providers, AI):
+
+```bash
+pip install -r requirements-optional.txt
+```
+
+### 2. Frontend (React + Vite)
+
+```bash
 cd frontend-new
 npm install
-npm run build
+npm run dev          # http://localhost:5173
+```
+
+### 3. Desktop (Tauri)
+
+```bash
+cd frontend-new
 npm run tauri:dev
+```
 
-# Frontend
-cd frontend-new && npm install && npm run dev
+### 4. Конфигурация / Configuration
 
-# Backend
-pip install -r requirements.txt
-uvicorn realworldmapgen.api.main:app --reload
-
-# Visit http://localhost:5173
+```bash
+cp .env.example .env    # все ключи опциональны / every key is optional
 ```
 
 **Смотрите [Руководство по быстрому старту](docs/QUICK_START.md) для подробных инструкций.**  
 **See [Quick Start Guide](docs/QUICK_START.md) for detailed instructions.**
+
+---
+
+## 🧪 Разработка / Development
+
+```bash
+# Backend: линтер и тесты / linter and tests
+pip install -r requirements-dev.txt
+ruff check realworldmapgen cli tests
+pytest
+
+# Тесты, требующие сети (проверка реального источника высот)
+# Network-dependent tests (verify the live elevation source)
+pytest -m network
+
+# Frontend
+cd frontend-new
+npm run lint && npm run type-check && npm run test -- --run && npm run build
+```
 
 ---
 
@@ -107,6 +148,33 @@ uvicorn realworldmapgen.api.main:app --reload
 - **Unity** - RAW heightmap (513, 1025, 2049, 4097)
 - **GLTF 2.0** - Универсальный 3D формат / Universal 3D format
 - **GeoTIFF** - Для GIS приложений / For GIS applications
+
+---
+
+## 🗻 Источники высот / Elevation sources
+
+| Источник / Source | Ключ / API key | Покрытие / Coverage | Разрешение / Resolution |
+|---|---|---|---|
+| **SRTM (Open Terrain Tiles)** | не нужен / none | глобальное / global | 30-90 м |
+| OpenTopography | требуется / required | LiDAR по регионам + глобальный SRTM/ASTER | 0.5-30 м |
+| Azure Maps | требуется / required | глобальное / global | переменное / varies |
+
+По умолчанию используется SRTM. При `elevation_source: "auto"` источники перебираются
+в порядке `ELEVATION_SOURCE_PRIORITY`, а SRTM всегда остаётся последним запасным вариантом.
+
+SRTM is used by default. With `elevation_source: "auto"` the sources are tried in
+`ELEVATION_SOURCE_PRIORITY` order, with SRTM always kept as the final fallback.
+
+Каждый ответ содержит поле `result.elevation`, где указан фактический источник и флаг
+`synthetic` — если все источники недоступны и включён процедурный запасной вариант,
+это будет явно видно в ответе и в предупреждениях задачи.
+
+Every response carries `result.elevation` naming the source that actually supplied the
+data, plus a `synthetic` flag - if all sources failed and the procedural fallback kicked
+in, the response and the task warnings say so explicitly.
+
+Данные высот предоставлены [AWS Open Data Terrain Tiles](https://registry.opendata.aws/terrain-tiles/)
+(SRTM / ASTER / NED / GMTED).
 
 ---
 

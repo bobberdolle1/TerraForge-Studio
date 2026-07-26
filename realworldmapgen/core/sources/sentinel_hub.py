@@ -4,18 +4,19 @@ High-resolution satellite imagery provider
 """
 
 import asyncio
-from typing import Optional, Dict, Any
-import numpy as np
 from datetime import datetime, timedelta
+from typing import Any, Dict, Optional
+
+import numpy as np
 
 try:
     from sentinelhub import (
-        SHConfig,
-        BBox,
         CRS,
+        BBox,
         DataCollection,
-        SentinelHubRequest,
         MimeType,
+        SentinelHubRequest,
+        SHConfig,
         bbox_to_dimensions,
     )
 
@@ -25,10 +26,10 @@ except ImportError:
 
 from .base import (
     BaseDataSource,
-    DataSourceType,
-    DataSourceCapability,
     BoundingBox,
+    DataSourceCapability,
     DataSourceConfig,
+    DataSourceType,
 )
 
 

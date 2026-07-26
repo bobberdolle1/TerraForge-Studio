@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Users, Circle, MessageSquare, AtSign } from 'lucide-react';
+import React, { useState } from 'react';
+import { Users, MessageSquare } from 'lucide-react';
 
 interface User {
   id: string;
@@ -21,7 +21,7 @@ interface Comment {
 }
 
 export const CollaborationPanel: React.FC = () => {
-  const [users, setUsers] = useState<User[]>([
+  const [users] = useState<User[]>([
     {
       id: '1',
       name: 'Current User',
@@ -31,7 +31,7 @@ export const CollaborationPanel: React.FC = () => {
     },
   ]);
 
-  const [comments, setComments] = useState<Comment[]>([]);
+  const [comments] = useState<Comment[]>([]);
   const [showComments, setShowComments] = useState(false);
 
   const getStatusColor = (status: User['status']) => {

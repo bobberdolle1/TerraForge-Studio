@@ -9,6 +9,7 @@ import type {
   HealthStatus,
   SourcesResponse,
   FormatsResponse,
+  TaskListResponse,
 } from '@/types';
 
 // Use empty baseURL to make requests relative to current origin
@@ -57,15 +58,20 @@ export const terraforgeApi = {
     return response.data;
   },
 
-  // List all tasks
+  // List all tasks. The endpoint wraps the list in { count, tasks }.
   listTasks: async (): Promise<GenerationStatus[]> => {
-    const response = await api.get<GenerationStatus[]>('/api/tasks');
-    return response.data;
+    const response = await api.get<TaskListResponse>('/api/tasks');
+    return response.data.tasks;
   },
 
-  // Download exported file
-  downloadFile: (taskId: string, filename: string): string => {
-    return `${API_BASE_URL}/api/download/${taskId}/${filename}`;
+  /**
+   * URL of a downloadable artifact for a generated map.
+   *
+   * `fileType` is one of the keys the backend exposes: 'zip' for the whole
+   * map, or 'heightmap' / 'metadata' / 'thumbnail' for individual files.
+   */
+  downloadUrl: (mapName: string, fileType: string = 'zip'): string => {
+    return `${API_BASE_URL}/api/maps/${encodeURIComponent(mapName)}/download/${fileType}`;
   },
 };
 
