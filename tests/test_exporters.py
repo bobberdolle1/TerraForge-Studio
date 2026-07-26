@@ -195,3 +195,70 @@ def test_synthetic_terrain_is_deterministic():
 
     assert first.shape == (32, 32)
     assert np.array_equal(first, second)
+
+
+# ---------------------------------------------------------------------------
+# Export manifest integrity
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_unity_splatmap_is_actually_written(terrain, tmp_path):
+    """
+    Every path an exporter reports must exist.
+
+    _export_splatmap used to compute a filename and return it without writing
+    anything, so the export result advertised a file that was never created.
+    """
+    terrain.weightmaps = {
+        "rock": np.full((64, 64), 0.25, dtype=np.float32),
+        "grass": np.full((64, 64), 0.25, dtype=np.float32),
+        "dirt": np.full((64, 64), 0.25, dtype=np.float32),
+        "sand": np.full((64, 64), 0.25, dtype=np.float32),
+    }
+
+    files = await UnityTerrainExporter(tmp_path).export(terrain)
+
+    assert "splatmap" in files
+    for label, path in files.items():
+        assert path.exists(), f"exporter reported {label} at {path}, which does not exist"
+
+
+@pytest.mark.asyncio
+async def test_unity_splatmap_channels_carry_the_layers(terrain, tmp_path):
+    """Unity reads an RGBA alphamap; one channel per terrain layer."""
+    from PIL import Image
+
+    terrain.weightmaps = {
+        "rock": np.full((64, 64), 1.0, dtype=np.float32),
+        "grass": np.zeros((64, 64), dtype=np.float32),
+        "dirt": np.zeros((64, 64), dtype=np.float32),
+        "sand": np.zeros((64, 64), dtype=np.float32),
+    }
+
+    files = await UnityTerrainExporter(tmp_path).export(terrain)
+
+    with Image.open(files["splatmap"]) as image:
+        assert image.mode == "RGBA"
+        pixel = image.getpixel((0, 0))
+
+    # rock is the first channel and is fully weighted here.
+    assert pixel[0] == 255
+    assert pixel[1:] == (0, 0, 0)
+
+
+@pytest.mark.asyncio
+async def test_unity_export_without_weightmaps_omits_the_splatmap(terrain, tmp_path):
+    terrain.weightmaps = None
+
+    files = await UnityTerrainExporter(tmp_path).export(terrain)
+
+    assert "splatmap" not in files
+    for path in files.values():
+        assert path.exists()
+
+
+@pytest.mark.asyncio
+async def test_ue5_reported_files_all_exist(terrain, tmp_path):
+    files = await Unreal5HeightmapExporter(tmp_path).export(terrain)
+
+    for label, path in files.items():
+        assert path.exists(), f"exporter reported {label} at {path}, which does not exist"

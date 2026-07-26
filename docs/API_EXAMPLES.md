@@ -216,6 +216,26 @@ as `LineString`, buildings and land use as closed `Polygon`. Each feature keeps
 its OSM attributes - lanes, maxspeed, surface, oneway for roads; building type
 and levels for buildings.
 
+### Repeated requests
+
+An identical request — same name, area, resolution, formats and feature flags —
+is served from the result cache instead of being regenerated. The response is
+the same shape, with `cached: true` and the artifacts restored to the output
+directory:
+
+```json
+"result": { "cached": true, "duration_seconds": 0.0 }
+```
+
+The cache is controlled by `ENABLE_CACHE`, `CACHE_EXPIRY_DAYS` and
+`CACHE_MAX_SIZE_GB`, and inspected through `/api/cache/stats` and
+`/api/cache/entries`. Entries are evicted by least-recent use when the size
+limit is reached. A damaged entry falls back to regenerating rather than
+serving broken output.
+
+The terrain name is part of the cache key because exported files are named
+after it; two names therefore never share an entry.
+
 ### List tasks
 
 ```bash

@@ -101,11 +101,19 @@ async def process_queue():
 
             gen_request = MapGenerationRequest(**job.request)
 
+            # Mirror generation progress onto the queue job so /api/batch/jobs
+            # and the queue UI show real progress instead of a bar stuck at 0.
+            async def report_progress(progress: float, _step: str, job_id: str = job.id):
+                await queue_manager.update_job_progress(
+                    job_id, progress, JobStatus.PROCESSING
+                )
+
             # Run generation on the shared generator so the job is also
             # visible through /api/tasks.
             result = await get_generator().generate_terrain(
                 gen_request,
-                task_id=job.id
+                task_id=job.id,
+                on_progress=report_progress,
             )
 
             if result.status == JobStatus.FAILED.value:

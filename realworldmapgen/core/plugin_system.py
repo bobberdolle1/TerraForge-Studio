@@ -215,19 +215,25 @@ class PluginRegistry:
             # Register plugin
             self.plugins[plugin_name] = plugin
 
-            # Register hooks
-            for hook_type in self.hooks.keys():
+            # Register only the hooks this plugin actually overrides.
+            for hook_type in self.hooks:
                 hook_method = getattr(plugin, hook_type, None)
-                if hook_method and callable(hook_method):
-                    # Check if method is overridden (not just inherited from base)
-                    if hook_method.__func__ != getattr(TerraForgePlugin, hook_type).__func__:
-                        self.hooks[hook_type].append(hook_method)
+                if not callable(hook_method):
+                    continue
+
+                # In Python 3 an attribute looked up on the class is a plain
+                # function with no __func__, so comparing __func__ on both
+                # sides raised AttributeError. The broad except below turned
+                # that into a silent "registration failed" for every plugin.
+                base_method = getattr(TerraForgePlugin, hook_type, None)
+                if base_method is None or hook_method.__func__ is not base_method:
+                    self.hooks[hook_type].append(hook_method)
 
             logger.info(f"Registered plugin: {plugin_name} v{plugin.version}")
             return True
 
         except Exception as e:
-            logger.error(f"Failed to register plugin: {e}")
+            logger.error(f"Failed to register plugin: {e}", exc_info=True)
             return False
 
     def unregister(self, plugin_name: str) -> bool:

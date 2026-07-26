@@ -15,9 +15,9 @@ router = APIRouter(prefix="/api/cache", tags=["cache"])
 async def get_cache_stats():
     """Get cache statistics"""
     try:
-        from ..core.cache_manager import get_cache_manager
+        from ..core.cache_manager import get_configured_cache_manager
 
-        cache = get_cache_manager()
+        cache = get_configured_cache_manager()
         stats = cache.get_cache_stats()
 
         return stats
@@ -30,9 +30,9 @@ async def get_cache_stats():
 async def get_cache_entries():
     """Get all cache entries with metadata"""
     try:
-        from ..core.cache_manager import get_cache_manager
+        from ..core.cache_manager import get_configured_cache_manager
 
-        cache = get_cache_manager()
+        cache = get_configured_cache_manager()
         entries = []
 
         for key, entry in cache.metadata.get("entries", {}).items():
@@ -60,9 +60,9 @@ async def get_cache_entries():
 async def clear_cache():
     """Clear entire cache"""
     try:
-        from ..core.cache_manager import get_cache_manager
+        from ..core.cache_manager import get_configured_cache_manager
 
-        cache = get_cache_manager()
+        cache = get_configured_cache_manager()
         cache.clear_cache()
 
         logger.info("Cache cleared via API")
@@ -80,9 +80,9 @@ async def clear_cache():
 async def delete_cache_entry(cache_key: str):
     """Delete specific cache entry"""
     try:
-        from ..core.cache_manager import get_cache_manager
+        from ..core.cache_manager import get_configured_cache_manager
 
-        cache = get_cache_manager()
+        cache = get_configured_cache_manager()
 
         if cache_key not in cache.metadata.get("entries", {}):
             raise HTTPException(status_code=404, detail="Cache entry not found")
@@ -106,9 +106,9 @@ async def delete_cache_entry(cache_key: str):
 async def get_cache_entry(cache_key: str):
     """Get specific cache entry details"""
     try:
-        from ..core.cache_manager import get_cache_manager
+        from ..core.cache_manager import get_configured_cache_manager
 
-        cache = get_cache_manager()
+        cache = get_configured_cache_manager()
 
         if cache_key not in cache.metadata.get("entries", {}):
             raise HTTPException(status_code=404, detail="Cache entry not found")
@@ -134,9 +134,9 @@ async def get_cache_entry(cache_key: str):
 async def optimize_cache():
     """Optimize cache by removing least recently used entries if over limit"""
     try:
-        from ..core.cache_manager import get_cache_manager
+        from ..core.cache_manager import get_configured_cache_manager
 
-        cache = get_cache_manager()
+        cache = get_configured_cache_manager()
 
         # Get current size
         current_size = cache.metadata.get("total_size", 0)

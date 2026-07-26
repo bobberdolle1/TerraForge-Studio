@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Dict, Optional
 
 import numpy as np
+from PIL import Image
 
 from ..base import BaseExporter, TerrainData
 
@@ -23,7 +24,7 @@ class UnityTerrainExporter(BaseExporter):
 
     Output files:
     - {name}_heightmap.raw - 16-bit RAW heightmap
-    - {name}_splatmap.png - Texture layer splatmap
+    - {name}_splatmap.png - RGBA splatmap (R=rock, G=grass, B=dirt, A=sand)
     - {name}_metadata.json - Import settings
     - {name}_import_script.cs - C# Editor script
     """
@@ -108,12 +109,43 @@ class UnityTerrainExporter(BaseExporter):
 
         return filepath
 
+    #: Splatmap channel order. Unity reads an RGBA alphamap where each channel
+    #: is the weight of the terrain layer at the same index.
+    SPLATMAP_LAYERS = ("rock", "grass", "dirt", "sand")
+
     async def _export_splatmap(self, terrain_data: TerrainData) -> Path:
-        """Export splatmap for terrain textures"""
-        # Simplified - full implementation would export proper splatmap format
+        """
+        Export the terrain splatmap (Unity alphamap) as an RGBA PNG.
+
+        One channel per terrain layer, matching :attr:`SPLATMAP_LAYERS`. The
+        generator produces weights that already sum to 1 per pixel, which is
+        what Unity expects from an alphamap.
+
+        This previously returned a path without writing anything, so the export
+        result advertised a file that did not exist.
+        """
+        weightmaps = terrain_data.weightmaps or {}
+        height, width = terrain_data.heightmap.shape
+
+        splatmap = np.zeros((height, width, 4), dtype=np.uint8)
+        for index, layer in enumerate(self.SPLATMAP_LAYERS):
+            if layer not in weightmaps:
+                continue
+
+            weights = np.clip(np.nan_to_num(weightmaps[layer]), 0.0, 1.0)
+            # export() may have resized the heightmap to a valid Unity terrain
+            # size; the weightmaps still carry the requested resolution, so
+            # they are brought to the same grid before being packed.
+            if weights.shape != (height, width):
+                weights = np.clip(self._resize_heightmap(weights, height), 0.0, 1.0)
+
+            splatmap[:, :, index] = (weights * 255).astype(np.uint8)
+
         filename = f"{terrain_data.name}_splatmap.png"
         filepath = self.output_dir / filename
-        # TODO: Implement proper splatmap export
+
+        Image.fromarray(splatmap, mode="RGBA").save(filepath)
+
         return filepath
 
     async def _export_metadata(self, terrain_data: TerrainData) -> Path:
