@@ -64,6 +64,11 @@ class TerrainCacheManager:
         """
         # Create a stable representation of the inputs
         cache_input = {
+            # The terrain name is part of the key because output files are named
+            # after it. Reusing another terrain's files under a new name would
+            # produce artifacts whose filenames and embedded metadata disagree
+            # with the request.
+            "name": config.get("name"),
             "bbox": {
                 "north": round(bbox.get("north", 0), 6),
                 "south": round(bbox.get("south", 0), 6),
@@ -173,6 +178,30 @@ class TerrainCacheManager:
             logger.error(f"Failed to store result in cache: {e}")
             return False
 
+    def restore_result(self, cache_key: str, destination: Path) -> bool:
+        """
+        Copy a cached result into ``destination``.
+
+        Returns True when the cached files were restored, False when the entry
+        is missing, expired, or could not be copied.
+        """
+        cache_path = self.get_cached_result(cache_key)
+        if cache_path is None:
+            return False
+
+        import shutil
+
+        try:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            if destination.exists():
+                shutil.rmtree(destination)
+            shutil.copytree(cache_path, destination)
+            logger.info("Restored cached result %s to %s", cache_key[:16], destination)
+            return True
+        except OSError as e:
+            logger.error(f"Failed to restore cached result: {e}")
+            return False
+
     def invalidate_cache(self, cache_key: str):
         """Remove a cache entry"""
         if cache_key not in self.metadata["entries"]:
@@ -246,7 +275,16 @@ class TerrainCacheManager:
 
 
 @lru_cache(maxsize=100)
-def get_cache_manager(cache_dir: str = "./cache") -> TerrainCacheManager:
-    """Get or create cache manager instance"""
-    return TerrainCacheManager(Path(cache_dir))
+def get_cache_manager(
+    cache_dir: str = "./cache",
+    max_cache_size_gb: float = 10.0,
+    max_age_days: int = 30,
+) -> TerrainCacheManager:
+    """
+    Get or create the cache manager for a directory.
+
+    The size and age limits are parameters rather than hardcoded defaults so
+    CACHE_MAX_SIZE_GB and CACHE_EXPIRY_DAYS from the configuration take effect.
+    """
+    return TerrainCacheManager(Path(cache_dir), max_cache_size_gb, max_age_days)
 

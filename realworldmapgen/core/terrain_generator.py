@@ -85,7 +85,11 @@ class TerraForgeGenerator:
 
         self.sources = self._initialize_sources()
 
-        self.cache_manager = get_cache_manager(str(settings.cache_dir))
+        self.cache_manager = get_cache_manager(
+            str(settings.cache_dir),
+            settings.cache_max_size_gb,
+            settings.cache_expiry_days,
+        )
 
         self.plugin_registry = get_plugin_registry()
         self.plugin_registry.load_from_directory(Path(settings.plugin_dir))
@@ -247,6 +251,28 @@ class TerraForgeGenerator:
             output_dir = settings.output_dir / request.name
             output_dir.mkdir(parents=True, exist_ok=True)
 
+            # --- Step 0: cache -------------------------------------------
+            cache_key = self._cache_key(request) if settings.enable_cache else None
+            if cache_key:
+                cached = self._restore_from_cache(cache_key, request, output_dir)
+                if cached is not None:
+                    status.result = cached
+                    status.status = TaskStatus.COMPLETED
+                    status.download_url = f"/api/maps/{request.name}/download/zip"
+                    self._advance(status, "Complete (from cache)", 100.0)
+                    status.message = f"Reused cached result for '{request.name}'"
+                    logger.info("Cache hit for '%s' (%s)", request.name, cache_key[:16])
+                    self._emit_event(
+                        "generation.completed",
+                        {
+                            "task_id": task_id,
+                            "name": request.name,
+                            "cached": True,
+                            "download_url": status.download_url,
+                        },
+                    )
+                    return status
+
             # --- Step 1: elevation ---------------------------------------
             self._advance(status, "Acquiring elevation data", 10.0)
             elevation_data, provenance = await self._get_elevation_data(
@@ -339,6 +365,9 @@ class TerraForgeGenerator:
                 duration_seconds=round(time.perf_counter() - started, 3),
             )
 
+            if cache_key:
+                self._store_in_cache(cache_key, result, output_dir)
+
             status.result = result
             status.status = TaskStatus.COMPLETED
             status.download_url = f"/api/maps/{request.name}/download/zip"
@@ -384,6 +413,94 @@ class TerraForgeGenerator:
             emit(name, data)
         except Exception as exc:  # noqa: BLE001
             logger.debug("Could not emit webhook event %s: %s", name, exc)
+
+    # ------------------------------------------------------------------
+    # Result cache
+    # ------------------------------------------------------------------
+    #: Serialized GenerationResult stored beside the cached artifacts.
+    CACHE_RESULT_FILE = "cache_result.json"
+
+    def _cache_key(self, request: MapGenerationRequest) -> str:
+        """Key covering everything that changes the produced artifacts."""
+        return self.cache_manager.generate_cache_key(
+            bbox={
+                "north": request.bbox.north,
+                "south": request.bbox.south,
+                "east": request.bbox.east,
+                "west": request.bbox.west,
+            },
+            config={
+                "name": request.name,
+                "resolution": request.resolution,
+                "export_formats": [fmt.value for fmt in request.export_formats],
+                "elevation_source": request.elevation_source.value,
+                "enable_roads": request.enable_roads,
+                "enable_buildings": request.enable_buildings,
+                "enable_weightmaps": request.enable_weightmaps,
+                "enable_vegetation": request.enable_vegetation,
+                "enable_water_bodies": request.enable_water_bodies,
+            },
+        )
+
+    def _restore_from_cache(
+        self, cache_key: str, request: MapGenerationRequest, output_dir: Path
+    ) -> Optional[GenerationResult]:
+        """
+        Rebuild a previous result for an identical request.
+
+        Returns None on any miss, so a damaged or partial cache entry falls
+        back to regenerating rather than surfacing broken output.
+        """
+        try:
+            if not self.cache_manager.restore_result(cache_key, output_dir):
+                return None
+
+            payload = output_dir / self.CACHE_RESULT_FILE
+            if not payload.exists():
+                logger.warning("Cache entry %s has no stored result", cache_key[:16])
+                return None
+
+            result = GenerationResult.model_validate_json(payload.read_text())
+            payload.unlink(missing_ok=True)
+        except Exception as exc:  # noqa: BLE001 - a bad entry must never fail the request
+            logger.warning("Could not restore cache entry %s: %s", cache_key[:16], exc)
+            return None
+
+        # Paths were recorded when the entry was created; rewrite them to the
+        # directory the files now live in.
+        result.output_directory = str(output_dir)
+        result.cached = True
+        result.duration_seconds = 0.0
+        for export in result.exports:
+            if export.directory:
+                export.directory = str(output_dir / Path(export.directory).name)
+            # Exported files live one directory below the terrain root,
+            # e.g. <output>/unity/<name>_heightmap.raw
+            export.files = {
+                key: str(output_dir / Path(value).parent.name / Path(value).name)
+                for key, value in export.files.items()
+            }
+        if result.thumbnail_path:
+            result.thumbnail_path = str(output_dir / Path(result.thumbnail_path).name)
+        if result.vectors and result.vectors.path:
+            result.vectors.path = str(output_dir / Path(result.vectors.path).name)
+
+        return result
+
+    def _store_in_cache(
+        self, cache_key: str, result: GenerationResult, output_dir: Path
+    ) -> None:
+        """Persist a completed generation; failures are logged, never raised."""
+        payload = output_dir / self.CACHE_RESULT_FILE
+        try:
+            payload.write_text(result.model_dump_json(), encoding="utf-8")
+            self.cache_manager.store_result(cache_key, output_dir)
+        except Exception as exc:  # noqa: BLE001 - caching is best-effort
+            logger.warning("Could not cache result %s: %s", cache_key[:16], exc)
+        finally:
+            # The manifest belongs to the cache entry, not to the user's
+            # download; the copy inside the cache is the one that matters.
+            payload.unlink(missing_ok=True)
 
     # ------------------------------------------------------------------
     # Elevation
