@@ -110,6 +110,10 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# The tests import `realworldmapgen` from the repository root. Nothing installs
+# the package in CI, and `tests/` is not a package, so pytest would otherwise
+# only put `tests/` on sys.path and every module would fail to import.
+pythonpath = ["."]
 # Browser-driven tests live in tests/e2e and need a running app, so they are
 # not part of the default run.
 addopts = "--ignore=tests/e2e -m 'not network'"
