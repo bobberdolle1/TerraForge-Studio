@@ -78,3 +78,6 @@ htmlcov/
 # Build artifacts
 *.zip
 *.tar.gz
+
+# Never commit installed dependencies (root and nested projects)
+node_modules/
